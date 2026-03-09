@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import type { Order, CartItem, OrderTimeline } from '@/types';
+import type { Order, CartItem, OrderTimeline, Subscription } from '@/types';
 
 const ORDERS_KEY = '@cutting_orders';
 
@@ -17,6 +17,7 @@ interface OrderContextType {
     deliveryAddress: string;
     orderType?: 'delivery' | 'pickup';
     specialNote?: string;
+    subscription?: Subscription;
   }) => Promise<Order>;
   refreshOrders: () => Promise<void>;
 }
@@ -63,6 +64,7 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
     deliveryAddress: string;
     orderType?: 'delivery' | 'pickup';
     specialNote?: string;
+    subscription?: Subscription;
   }): Promise<Order> => {
     const existing = orders;
     const maxNum = existing.reduce((max, o) => {
@@ -96,6 +98,7 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
       estimatedDelivery: '30-45 min',
       timeline: buildTimeline(now),
       specialNote: input.specialNote,
+      subscription: input.subscription,
     };
 
     const updated = [order, ...existing];

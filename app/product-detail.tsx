@@ -42,7 +42,7 @@ export default function ProductDetailScreen() {
   return (
     <SafeAreaView style={styles.safe} edges={['bottom']}>
       <StatusBar barStyle="light-content" />
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ flexGrow: 1 }}>
         <View style={styles.imageContainer}>
           <Image source={{ uri: product.image }} style={styles.image} resizeMode="cover" />
           <LinearGradient colors={['rgba(0,0,0,0.4)', 'transparent']} style={styles.imageOverlay} />
@@ -164,7 +164,7 @@ export default function ProductDetailScreen() {
             <View style={[styles.priceRow, styles.priceTotalRow]}><Text style={styles.priceTotalLabel}>Total</Text><Text style={styles.priceTotalValue}>{'\u20B9'}{totalPrice}</Text></View>
           </View>
 
-          <View style={{ height: 100 }} />
+          <View style={{ height: 20 }} />
         </View>
       </ScrollView>
 

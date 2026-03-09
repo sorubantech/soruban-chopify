@@ -275,7 +275,7 @@ export default function DishPackDetailScreen() {
           {cuttingTotal > 0 && <View style={styles.priceRow}><Text style={styles.priceLabel}>Cutting Charges</Text><Text style={[styles.priceValue, { color: COLORS.primary }]}>{'\u20B9'}{cuttingTotal}</Text></View>}
           <View style={[styles.priceRow, styles.priceTotalRow]}><Text style={styles.priceTotalLabel}>Total</Text><Text style={styles.priceTotalValue}>{'\u20B9'}{totalPrice}</Text></View>
         </View>
-        <View style={{ height: 100 }} />
+        <View style={{ height: 20 }} />
       </ScrollView>
 
       <View style={styles.addBar}>

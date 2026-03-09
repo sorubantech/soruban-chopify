@@ -44,6 +44,12 @@ export default function OrdersScreen() {
             <Text style={[styles.statusText, { color: config.color }]}>{config.label}</Text>
           </View>
         </View>
+        {item.subscription && (
+          <View style={styles.subBadgeRow}>
+            <Icon name="autorenew" size={12} color="#F57C00" />
+            <Text style={styles.subBadgeText}>{item.subscription.frequency.charAt(0).toUpperCase() + item.subscription.frequency.slice(1)} Subscription</Text>
+          </View>
+        )}
         <View style={styles.orderItems}>
           {item.items.slice(0, 3).map((oi, idx) => (
             <Text key={idx} style={styles.orderItemText} numberOfLines={1}>
@@ -114,4 +120,6 @@ const styles = StyleSheet.create({
   emptyDesc: { fontSize: 13, color: COLORS.text.muted, marginTop: 4 },
   chatBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: SPACING.sm, paddingVertical: 8, borderTopWidth: 1, borderTopColor: COLORS.border },
   chatBtnText: { fontSize: 12, fontWeight: '700', color: COLORS.primary },
+  subBadgeRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: SPACING.sm, backgroundColor: '#FFF8E1', alignSelf: 'flex-start', borderRadius: RADIUS.sm, paddingHorizontal: 8, paddingVertical: 3 },
+  subBadgeText: { fontSize: 10, fontWeight: '700', color: '#F57C00' },
 });

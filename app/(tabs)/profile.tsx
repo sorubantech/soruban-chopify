@@ -25,6 +25,7 @@ export default function ProfileScreen() {
   const { orders } = useOrders();
   const totalOrders = orders.length;
   const totalSaved = orders.reduce((sum, o) => sum + (o.discount || 0), 0);
+  const activeSubscriptions = orders.filter(o => o.subscription?.status === 'active');
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
@@ -70,6 +71,41 @@ export default function ProfileScreen() {
             </View>
           ))}
         </View>
+
+        {/* Active Subscriptions */}
+        {activeSubscriptions.length > 0 && (
+          <View style={styles.recentSection}>
+            <View style={styles.recentHeader}>
+              <Text style={styles.recentTitle}>My Subscriptions</Text>
+              <View style={styles.subCountBadge}><Text style={styles.subCountText}>{activeSubscriptions.length} active</Text></View>
+            </View>
+            {activeSubscriptions.map(order => {
+              const sub = order.subscription!;
+              const freqLabel = sub.frequency.charAt(0).toUpperCase() + sub.frequency.slice(1);
+              const scheduleDetail = sub.frequency === 'weekly' ? `Every ${sub.weeklyDay}` : sub.frequency === 'monthly' ? `On ${sub.monthlyDates?.join(', ')}` : 'Every day';
+              return (
+                <TouchableOpacity
+                  key={order.id}
+                  style={styles.subCard}
+                  onPress={() => router.push({ pathname: '/order-detail', params: { id: order.id } })}
+                >
+                  <View style={styles.subCardIcon}>
+                    <Icon name={sub.frequency === 'daily' ? 'calendar-today' : sub.frequency === 'weekly' ? 'calendar-week' : 'calendar-month'} size={22} color="#FFF" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <Text style={styles.subCardTitle}>{freqLabel} Subscription</Text>
+                      <View style={styles.subActiveBadge}><Text style={styles.subActiveText}>Active</Text></View>
+                    </View>
+                    <Text style={styles.subCardDetail}>{scheduleDetail} at {sub.preferredTime}</Text>
+                    <Text style={styles.subCardItems}>{order.items.length} items · {'\u20B9'}{order.total}/delivery</Text>
+                  </View>
+                  <Icon name="chevron-right" size={16} color={COLORS.text.muted} />
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        )}
 
         {/* Recent Orders */}
         {totalOrders > 0 && (
@@ -167,4 +203,14 @@ const styles = StyleSheet.create({
   menuLabel: { flex: 1, fontSize: 14, fontWeight: '600', color: COLORS.text.primary },
   logoutBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: SPACING.xl, paddingVertical: SPACING.md, borderWidth: 1.5, borderColor: COLORS.status.error, borderRadius: RADIUS.full },
   logoutText: { fontSize: 14, fontWeight: '700', color: COLORS.status.error },
+  // Subscriptions
+  subCountBadge: { backgroundColor: '#FFF8E1', borderRadius: RADIUS.sm, paddingHorizontal: 8, paddingVertical: 2 },
+  subCountText: { fontSize: 11, fontWeight: '700', color: '#F57C00' },
+  subCard: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#FFF', borderRadius: RADIUS.lg, padding: SPACING.md, marginBottom: SPACING.sm, ...SHADOW.sm },
+  subCardIcon: { width: 44, height: 44, borderRadius: 12, backgroundColor: COLORS.primary, justifyContent: 'center', alignItems: 'center' },
+  subCardTitle: { fontSize: 13, fontWeight: '800', color: COLORS.text.primary },
+  subActiveBadge: { backgroundColor: '#E8F5E9', borderRadius: RADIUS.sm, paddingHorizontal: 6, paddingVertical: 2 },
+  subActiveText: { fontSize: 9, fontWeight: '700', color: '#4CAF50' },
+  subCardDetail: { fontSize: 11, color: COLORS.text.secondary, marginTop: 2 },
+  subCardItems: { fontSize: 11, color: COLORS.text.muted, marginTop: 1 },
 });

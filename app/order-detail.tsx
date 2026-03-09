@@ -82,6 +82,31 @@ export default function OrderDetailScreen() {
           </LinearGradient>
         </View>
 
+        {/* Subscription Info */}
+        {order.subscription && (
+          <View style={styles.subInfoCard}>
+            <View style={styles.subInfoHeader}>
+              <Icon name="autorenew" size={20} color="#FFF" />
+              <Text style={styles.subInfoTitle}>{order.subscription.frequency.charAt(0).toUpperCase() + order.subscription.frequency.slice(1)} Subscription</Text>
+              <View style={[styles.subStatusBadge, order.subscription.status === 'active' && styles.subStatusActive, order.subscription.status === 'paused' && styles.subStatusPaused]}>
+                <Text style={styles.subStatusText}>{order.subscription.status.charAt(0).toUpperCase() + order.subscription.status.slice(1)}</Text>
+              </View>
+            </View>
+            <View style={styles.subInfoBody}>
+              {order.subscription.frequency === 'weekly' && order.subscription.weeklyDay && (
+                <View style={styles.subInfoRow}><Icon name="calendar-week" size={14} color={COLORS.text.muted} /><Text style={styles.subInfoText}>Every {order.subscription.weeklyDay}</Text></View>
+              )}
+              {order.subscription.frequency === 'monthly' && order.subscription.monthlyDates && (
+                <View style={styles.subInfoRow}><Icon name="calendar-month" size={14} color={COLORS.text.muted} /><Text style={styles.subInfoText}>On {order.subscription.monthlyDates.join(', ')} of each month</Text></View>
+              )}
+              {order.subscription.frequency === 'daily' && (
+                <View style={styles.subInfoRow}><Icon name="calendar-today" size={14} color={COLORS.text.muted} /><Text style={styles.subInfoText}>Every day</Text></View>
+              )}
+              <View style={styles.subInfoRow}><Icon name="clock-outline" size={14} color={COLORS.text.muted} /><Text style={styles.subInfoText}>{order.subscription.preferredTime}</Text></View>
+            </View>
+          </View>
+        )}
+
         {/* Timeline */}
         <View style={styles.sectionCard}>
           <Text style={styles.sectionTitle}>Order Timeline</Text>
@@ -240,4 +265,15 @@ const styles = StyleSheet.create({
   chatInput: { flex: 1, backgroundColor: COLORS.background, borderRadius: RADIUS.md, paddingHorizontal: 14, paddingVertical: 10, fontSize: 14, color: COLORS.text.primary },
   chatSendBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#E0E0E0', justifyContent: 'center', alignItems: 'center' },
   chatSendBtnActive: { backgroundColor: COLORS.primary },
+  // Subscription
+  subInfoCard: { borderRadius: RADIUS.lg, overflow: 'hidden', marginBottom: SPACING.md },
+  subInfoHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: COLORS.primary, paddingHorizontal: SPACING.base, paddingVertical: 12 },
+  subInfoTitle: { fontSize: 14, fontWeight: '800', color: '#FFF', flex: 1 },
+  subStatusBadge: { borderRadius: RADIUS.sm, paddingHorizontal: 8, paddingVertical: 3, backgroundColor: 'rgba(255,255,255,0.2)' },
+  subStatusActive: { backgroundColor: '#E8F5E9' },
+  subStatusPaused: { backgroundColor: '#FFF8E1' },
+  subStatusText: { fontSize: 10, fontWeight: '700', color: '#4CAF50' },
+  subInfoBody: { backgroundColor: '#FFF', padding: SPACING.base, gap: 8 },
+  subInfoRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  subInfoText: { fontSize: 12, color: COLORS.text.secondary },
 });

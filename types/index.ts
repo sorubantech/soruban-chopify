@@ -55,6 +55,17 @@ export interface ScheduledDelivery {
 
 export type OrderType = 'delivery' | 'pickup';
 
+export type SubFrequency = 'daily' | 'weekly' | 'monthly';
+
+export interface Subscription {
+  frequency: SubFrequency;
+  preferredTime: string;
+  startDate: string;
+  weeklyDay?: string;        // e.g. 'Mon', 'Tue' — for weekly
+  monthlyDates?: number[];   // e.g. [1, 15] — for monthly
+  status: 'active' | 'paused' | 'cancelled';
+}
+
 export interface Order {
   id: string;
   items: OrderItem[];
@@ -73,6 +84,7 @@ export interface Order {
   estimatedDelivery?: string;
   timeline?: OrderTimeline[];
   specialNote?: string;
+  subscription?: Subscription;
 }
 
 export interface OrderItem {

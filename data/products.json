@@ -1,178 +1,203 @@
 [
   {
     "id": "1", "name": "Tomato", "price": 40, "unit": "1 kg",
-    "image": "https://images.unsplash.com/photo-1561136594-7f68413baa99?q=80&w=870&auto=format&fit=crop",
+    "image": "https://images.unsplash.com/photo-1561136594-7f68413baa99?auto=format&fit=crop&w=400&q=80",
     "discount": "10% OFF", "category": "Vegetables", "subcategory": "Everyday",
     "description": "Fresh, ripe tomatoes. Perfect for curries, sambar and chutneys.",
-    "inStock": true, "rating": 4.5, "reviewCount": 128
+    "inStock": true, "rating": 4.5, "reviewCount": 128,
+    "healthBenefits": ["Rich in lycopene and antioxidants", "Supports heart health", "Good source of Vitamin C"]
   },
   {
     "id": "4", "name": "Onion", "price": 30, "unit": "1 kg",
     "image": "https://images.unsplash.com/photo-1618512496248-a07fe83aa8cb?auto=format&fit=crop&w=400&q=80",
     "discount": "Market Price", "category": "Vegetables", "subcategory": "Everyday",
     "description": "Premium quality onions, essential for every Indian kitchen.",
-    "inStock": true, "rating": 4.2, "reviewCount": 156
+    "inStock": true, "rating": 4.2, "reviewCount": 156,
+    "healthBenefits": ["Contains quercetin antioxidants", "Supports immune function", "Anti-inflammatory properties"]
   },
   {
     "id": "7", "name": "Carrot", "price": 45, "unit": "1 kg",
     "image": "https://images.unsplash.com/photo-1598170845058-32b9d6a5da37?auto=format&fit=crop&w=400&q=80",
     "category": "Vegetables", "subcategory": "Root",
     "description": "Crunchy, sweet carrots. Great for salads, curries and juices.",
-    "inStock": true, "rating": 4.4, "reviewCount": 87
+    "inStock": true, "rating": 4.4, "reviewCount": 87,
+    "healthBenefits": ["Rich in beta-carotene for eye health", "High in fiber for digestion", "Boosts immunity with Vitamin A"]
   },
   {
     "id": "10", "name": "Spinach", "price": 25, "unit": "1 bunch",
     "image": "https://images.unsplash.com/photo-1576045057995-568f588f82fb?auto=format&fit=crop&w=400&q=80",
     "category": "Vegetables", "subcategory": "Leafy",
     "description": "Fresh spinach leaves, rich in iron. Perfect for palak paneer.",
-    "inStock": true, "rating": 4.3, "reviewCount": 64
+    "inStock": true, "rating": 4.3, "reviewCount": 64,
+    "healthBenefits": ["Excellent source of iron", "Rich in Vitamin K for bone health", "High in folate and antioxidants"]
   },
   {
     "id": "13", "name": "Potato", "price": 28, "unit": "1 kg",
-    "image": "https://images.unsplash.com/photo-1518977676601-b53f82ber57?auto=format&fit=crop&w=400&q=80",
+    "image": "https://images.unsplash.com/photo-1508313880080-c8bef91e309c?auto=format&fit=crop&w=400&q=80",
     "category": "Vegetables", "subcategory": "Root",
     "description": "Fresh potatoes, versatile for any dish.",
-    "inStock": true, "rating": 4.5, "reviewCount": 198
+    "inStock": true, "rating": 4.5, "reviewCount": 198,
+    "healthBenefits": ["Good source of potassium", "Rich in Vitamin B6", "Provides complex carbohydrates for energy"]
   },
   {
     "id": "19", "name": "Capsicum", "price": 55, "unit": "500 g",
     "image": "https://images.unsplash.com/photo-1563565375-f3fdfdbefa83?auto=format&fit=crop&w=400&q=80",
     "category": "Vegetables", "subcategory": "Everyday",
     "description": "Fresh green capsicum, adds crunch and flavor.",
-    "inStock": true, "rating": 4.1, "reviewCount": 53
+    "inStock": true, "rating": 4.1, "reviewCount": 53,
+    "healthBenefits": ["Very high in Vitamin C", "Low calorie and nutrient dense", "Contains capsaicin for metabolism boost"]
   },
   {
     "id": "20", "name": "Cucumber", "price": 30, "unit": "500 g",
     "image": "https://images.unsplash.com/photo-1449300079323-02e209d9d3a6?auto=format&fit=crop&w=400&q=80",
     "category": "Vegetables", "subcategory": "Everyday",
     "description": "Cool, crisp cucumber. Perfect for salads and raita.",
-    "inStock": true, "rating": 4.2, "reviewCount": 71
+    "inStock": true, "rating": 4.2, "reviewCount": 71,
+    "healthBenefits": ["Excellent hydration source", "Low calorie weight-loss friendly", "Supports skin health"]
   },
   {
     "id": "21", "name": "Brinjal", "price": 35, "unit": "500 g",
-    "image": "https://images.unsplash.com/photo-1615485290382-441e4d049cb5?auto=format&fit=crop&w=400&q=80",
+    "image": "https://images.unsplash.com/photo-1628773822503-930a7eaecf80?auto=format&fit=crop&w=400&q=80",
     "category": "Vegetables", "subcategory": "Everyday",
     "description": "Fresh brinjal, ideal for curries and bharta.",
-    "inStock": true, "rating": 4.0, "reviewCount": 42
+    "inStock": true, "rating": 4.0, "reviewCount": 42,
+    "healthBenefits": ["Rich in fiber and antioxidants", "Supports brain health", "Low calorie and filling"]
   },
   {
     "id": "22", "name": "Cauliflower", "price": 40, "unit": "1 pc",
     "image": "https://images.unsplash.com/photo-1568584711075-3d021a7c3ca3?auto=format&fit=crop&w=400&q=80",
     "category": "Vegetables", "subcategory": "Everyday",
     "description": "Fresh, white cauliflower. Perfect for gobi masala.",
-    "inStock": true, "rating": 4.3, "reviewCount": 58
+    "inStock": true, "rating": 4.3, "reviewCount": 58,
+    "healthBenefits": ["High in Vitamin C and K", "Good source of fiber", "Contains sulforaphane for cell protection"]
   },
   {
     "id": "30", "name": "Beans", "price": 50, "unit": "500 g",
     "image": "https://images.unsplash.com/photo-1567375698348-5d9d5ae10c3c?auto=format&fit=crop&w=400&q=80",
     "category": "Vegetables", "subcategory": "Everyday",
     "description": "Fresh green beans, tender and crisp.",
-    "inStock": true, "rating": 4.2, "reviewCount": 39
+    "inStock": true, "rating": 4.2, "reviewCount": 39,
+    "healthBenefits": ["High in fiber for digestion", "Good source of folate", "Rich in Vitamin K"]
   },
   {
     "id": "31", "name": "Cabbage", "price": 25, "unit": "1 pc",
     "image": "https://images.unsplash.com/photo-1594282486552-05b4d80fbb9f?auto=format&fit=crop&w=400&q=80",
     "category": "Vegetables", "subcategory": "Leafy",
     "description": "Fresh green cabbage, great for stir-fry and salads.",
-    "inStock": true, "rating": 4.1, "reviewCount": 45
+    "inStock": true, "rating": 4.1, "reviewCount": 45,
+    "healthBenefits": ["Supports gut health", "Rich in Vitamin C", "Anti-inflammatory properties"]
   },
   {
     "id": "32", "name": "Drumstick", "price": 60, "unit": "500 g",
-    "image": "https://images.unsplash.com/photo-1615485290382-441e4d049cb5?auto=format&fit=crop&w=400&q=80",
+    "image": "https://images.unsplash.com/photo-1626700051175-6818013e1d4f?auto=format&fit=crop&w=400&q=80",
     "category": "Vegetables", "subcategory": "Everyday",
     "description": "Fresh drumstick, essential for sambar.",
-    "inStock": true, "rating": 4.4, "reviewCount": 67
+    "inStock": true, "rating": 4.4, "reviewCount": 67,
+    "healthBenefits": ["Extremely rich in Vitamin C", "Supports bone health with calcium", "Natural blood purifier"]
   },
   {
     "id": "33", "name": "Beetroot", "price": 35, "unit": "500 g",
     "image": "https://images.unsplash.com/photo-1593105544559-ecb03bf76f82?auto=format&fit=crop&w=400&q=80",
     "category": "Vegetables", "subcategory": "Root",
     "description": "Fresh beetroot, great for juices and salads.",
-    "inStock": true, "rating": 4.2, "reviewCount": 34
+    "inStock": true, "rating": 4.2, "reviewCount": 34,
+    "healthBenefits": ["Improves blood flow and stamina", "Lowers blood pressure naturally", "Rich in iron and folate"]
   },
   {
     "id": "34", "name": "Lady Finger", "price": 45, "unit": "500 g",
-    "image": "https://images.unsplash.com/photo-1425543103986-22abb7d7e8d2?auto=format&fit=crop&w=400&q=80",
+    "image": "https://images.unsplash.com/photo-1604977042946-1eecc30f269e?auto=format&fit=crop&w=400&q=80",
     "category": "Vegetables", "subcategory": "Everyday",
     "description": "Fresh lady finger, perfect for bhindi masala.",
-    "inStock": true, "rating": 4.3, "reviewCount": 52
+    "inStock": true, "rating": 4.3, "reviewCount": 52,
+    "healthBenefits": ["High in soluble fiber", "Helps control blood sugar", "Rich in Vitamin A and C"]
   },
   {
     "id": "35", "name": "Bitter Gourd", "price": 40, "unit": "500 g",
-    "image": "https://images.unsplash.com/photo-1587735243615-c03f25aaff15?auto=format&fit=crop&w=400&q=80",
+    "image": "https://images.unsplash.com/photo-1567620832903-9fc6debc209f?auto=format&fit=crop&w=400&q=80",
     "category": "Vegetables", "subcategory": "Gourd",
     "description": "Fresh bitter gourd, known for health benefits.",
-    "inStock": true, "rating": 3.9, "reviewCount": 28
+    "inStock": true, "rating": 3.9, "reviewCount": 28,
+    "healthBenefits": ["Helps regulate blood sugar levels", "Rich in Vitamin C and antioxidants", "Supports liver health"]
   },
   {
     "id": "36", "name": "Bottle Gourd", "price": 30, "unit": "1 pc",
-    "image": "https://images.unsplash.com/photo-1587735243615-c03f25aaff15?auto=format&fit=crop&w=400&q=80",
+    "image": "https://images.unsplash.com/photo-1595855759920-86582396756a?auto=format&fit=crop&w=400&q=80",
     "category": "Vegetables", "subcategory": "Gourd",
     "description": "Fresh bottle gourd, light and nutritious.",
-    "inStock": true, "rating": 4.0, "reviewCount": 31
+    "inStock": true, "rating": 4.0, "reviewCount": 31,
+    "healthBenefits": ["Very low in calories", "Excellent for weight loss", "Keeps body hydrated and cool"]
   },
   {
     "id": "2", "name": "Banana", "price": 35, "unit": "1 dozen",
     "image": "https://images.unsplash.com/photo-1571771894821-ce9b6c11b08e?auto=format&fit=crop&w=400&q=80",
     "category": "Fruits", "subcategory": "Everyday",
     "description": "Sweet, naturally ripened bananas.",
-    "inStock": true, "rating": 4.3, "reviewCount": 95
+    "inStock": true, "rating": 4.3, "reviewCount": 95,
+    "healthBenefits": ["Instant energy from natural sugars", "Rich in potassium for heart health", "Supports digestive health"]
   },
   {
     "id": "8", "name": "Orange", "price": 90, "unit": "1 kg",
     "image": "https://images.unsplash.com/photo-1547514701-42782101795e?auto=format&fit=crop&w=400&q=80",
     "category": "Fruits", "subcategory": "Citrus",
     "description": "Juicy Nagpur oranges, vitamin C powerhouse.",
-    "inStock": true, "rating": 4.4, "reviewCount": 76
+    "inStock": true, "rating": 4.4, "reviewCount": 76,
+    "healthBenefits": ["Very high in Vitamin C", "Boosts immunity naturally", "Rich in flavonoids for heart health"]
   },
   {
     "id": "11", "name": "Apple", "price": 160, "unit": "1 kg",
     "image": "https://images.unsplash.com/photo-1568702846914-96b305d2aaeb?auto=format&fit=crop&w=400&q=80",
     "category": "Fruits", "subcategory": "Everyday",
     "description": "Fresh Kashmir apples, crisp and sweet.",
-    "inStock": true, "rating": 4.6, "reviewCount": 112
+    "inStock": true, "rating": 4.6, "reviewCount": 112,
+    "healthBenefits": ["Rich in fiber and antioxidants", "Supports heart and gut health", "Helps regulate blood sugar"]
   },
   {
     "id": "23", "name": "Mango", "price": 120, "unit": "1 kg",
     "image": "https://images.unsplash.com/photo-1553279768-865429fa0078?auto=format&fit=crop&w=400&q=80",
     "category": "Fruits", "subcategory": "Seasonal",
     "description": "Sweet Alphonso mangoes, king of fruits.",
-    "inStock": true, "rating": 4.8, "reviewCount": 203
+    "inStock": true, "rating": 4.8, "reviewCount": 203,
+    "healthBenefits": ["Rich in Vitamin A for eye health", "High in antioxidants", "Boosts digestive enzymes"]
   },
   {
     "id": "24", "name": "Grapes", "price": 80, "unit": "500 g",
     "image": "https://images.unsplash.com/photo-1537640538966-79f369143f8f?auto=format&fit=crop&w=400&q=80",
     "category": "Fruits", "subcategory": "Everyday",
     "description": "Fresh seedless grapes, juicy and sweet.",
-    "inStock": true, "rating": 4.3, "reviewCount": 89
+    "inStock": true, "rating": 4.3, "reviewCount": 89,
+    "healthBenefits": ["Rich in resveratrol antioxidants", "Supports heart health", "Hydrating and low calorie"]
   },
   {
     "id": "25", "name": "Watermelon", "price": 45, "unit": "1 kg",
     "image": "https://images.unsplash.com/photo-1589984662646-e7b2e4962f18?auto=format&fit=crop&w=400&q=80",
     "category": "Fruits", "subcategory": "Seasonal",
     "description": "Refreshing watermelon, perfect for summer.",
-    "inStock": true, "rating": 4.5, "reviewCount": 67
+    "inStock": true, "rating": 4.5, "reviewCount": 67,
+    "healthBenefits": ["92% water for excellent hydration", "Contains lycopene for skin health", "Reduces muscle soreness after exercise"]
   },
   {
     "id": "61", "name": "Pomegranate", "price": 110, "unit": "500 g",
-    "image": "https://images.unsplash.com/photo-1615485290382-441e4d049cb5?auto=format&fit=crop&w=400&q=80",
+    "image": "https://images.unsplash.com/photo-1541344999736-4a22b0e5fc72?auto=format&fit=crop&w=400&q=80",
     "category": "Fruits", "subcategory": "Everyday",
     "description": "Fresh pomegranate, packed with antioxidants.",
-    "inStock": true, "rating": 4.4, "reviewCount": 54
+    "inStock": true, "rating": 4.4, "reviewCount": 54,
+    "healthBenefits": ["Powerful antioxidant superfruit", "Improves blood circulation", "Supports memory and brain health"]
   },
   {
     "id": "62", "name": "Papaya", "price": 50, "unit": "1 kg",
     "image": "https://images.unsplash.com/photo-1517282009859-f000ec3b26fe?auto=format&fit=crop&w=400&q=80",
     "category": "Fruits", "subcategory": "Everyday",
     "description": "Ripe papaya, great for fruit salads and juices.",
-    "inStock": true, "rating": 4.1, "reviewCount": 38
+    "inStock": true, "rating": 4.1, "reviewCount": 38,
+    "healthBenefits": ["Contains papain enzyme for digestion", "Rich in Vitamin C and A", "Supports skin health and glow"]
   },
   {
     "id": "63", "name": "Pineapple", "price": 70, "unit": "1 pc",
     "image": "https://images.unsplash.com/photo-1550258987-190a2d41a8ba?auto=format&fit=crop&w=400&q=80",
     "category": "Fruits", "subcategory": "Everyday",
     "description": "Sweet and tangy pineapple, ready to eat.",
-    "inStock": true, "rating": 4.3, "reviewCount": 45
+    "inStock": true, "rating": 4.3, "reviewCount": 45,
+    "healthBenefits": ["Contains bromelain for digestion", "Anti-inflammatory properties", "Rich in manganese for bone health"]
   },
 
   {
@@ -182,6 +207,7 @@
     "description": "Fresh mixed sprouts with cucumber, tomato and lemon dressing. Rich in protein and fiber.",
     "inStock": true, "rating": 4.6, "reviewCount": 84,
     "tags": ["High Protein", "Low Calorie"],
+    "healthBenefits": ["High plant protein for muscle repair", "Rich in fiber for gut health", "Low calorie - ideal for weight management"],
     "targetAudience": ["Office", "Students", "Fitness"]
   },
   {
@@ -191,15 +217,17 @@
     "description": "Seasonal fresh fruit bowl with honey drizzle. Perfect mid-day snack.",
     "inStock": true, "rating": 4.7, "reviewCount": 112,
     "tags": ["Vitamin Rich", "No Added Sugar"],
+    "healthBenefits": ["Packed with natural vitamins and minerals", "No added sugar - naturally sweet", "Boosts energy and mood naturally"],
     "targetAudience": ["Office", "Students", "College"]
   },
   {
     "id": "103", "name": "Carrot Cucumber Sticks", "price": 60, "unit": "200 g",
-    "image": "https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=400&q=80",
+    "image": "https://images.unsplash.com/photo-1623428187969-5da2dcea5ebf?auto=format&fit=crop&w=400&q=80",
     "category": "Healthy Snacks", "subcategory": "Snacks",
     "description": "Crunchy vegetable sticks with hummus dip. Great for on-the-go snacking.",
     "inStock": true, "rating": 4.3, "reviewCount": 56,
     "tags": ["Low Calorie", "Crunchy"],
+    "healthBenefits": ["Only 45 calories per serving", "Rich in beta-carotene for eye health", "Hummus adds healthy protein and fats"],
     "targetAudience": ["Office", "Students"]
   },
   {
@@ -209,6 +237,7 @@
     "description": "Freshly squeezed orange juice, no sugar added. Vitamin C powerhouse.",
     "inStock": true, "rating": 4.5, "reviewCount": 93,
     "tags": ["No Sugar", "Vitamin C"],
+    "healthBenefits": ["Improves immunity with high Vitamin C", "No added sugar - 100% natural", "Supports skin health and collagen production"],
     "targetAudience": ["Office", "Students", "Fitness"]
   },
   {
@@ -218,6 +247,7 @@
     "description": "Spinach, banana, and apple smoothie. Packed with nutrients for your day.",
     "inStock": true, "rating": 4.4, "reviewCount": 67,
     "tags": ["Nutrient Dense", "Energy Boost"],
+    "healthBenefits": ["Iron-rich spinach fights fatigue", "Natural energy boost without caffeine", "Detoxifies and supports liver function"],
     "targetAudience": ["Office", "College", "Fitness"]
   },
   {
@@ -227,6 +257,7 @@
     "description": "Whole wheat sandwich with fresh vegetables and mint chutney.",
     "inStock": true, "rating": 4.2, "reviewCount": 45,
     "tags": ["Whole Wheat", "Filling"],
+    "healthBenefits": ["Whole wheat provides sustained energy", "Fresh veggies add fiber and vitamins", "Balanced meal with carbs, fiber and minerals"],
     "targetAudience": ["Office", "Students", "College"]
   },
   {
@@ -236,6 +267,7 @@
     "description": "Blend of seasonal fruits with yogurt. Creamy and refreshing.",
     "inStock": true, "rating": 4.6, "reviewCount": 78,
     "tags": ["Probiotic", "Refreshing"],
+    "healthBenefits": ["Yogurt adds probiotics for gut health", "Natural vitamins from seasonal fruits", "Calcium-rich for strong bones"],
     "targetAudience": ["Office", "Students", "College"]
   },
   {
@@ -245,6 +277,7 @@
     "description": "Steamed sweet corn with butter and spices. A filling healthy snack.",
     "inStock": true, "rating": 4.3, "reviewCount": 62,
     "tags": ["Fiber Rich", "Filling"],
+    "healthBenefits": ["High in dietary fiber for digestion", "Contains lutein for eye protection", "Good source of B vitamins for energy"],
     "targetAudience": ["Students", "College"]
   },
 
@@ -255,37 +288,37 @@
     "description": "Guava, papaya, and berries - low glycemic fruits safe for diabetics.",
     "inStock": true, "rating": 4.7, "reviewCount": 43,
     "tags": ["Low GI", "Doctor Recommended"],
-    "healthBenefits": ["Low glycemic index", "Blood sugar friendly", "Rich in fiber"],
+    "healthBenefits": ["Low glycemic index - won't spike blood sugar", "Rich in fiber to slow sugar absorption", "Provides essential vitamins without excess sugar"],
     "targetAudience": ["Diabetes"]
   },
   {
     "id": "202", "name": "High Fiber Veggie Pack", "price": 120, "unit": "500 g",
-    "image": "https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=400&q=80",
+    "image": "https://images.unsplash.com/photo-1597362925123-77861d3fbac7?auto=format&fit=crop&w=400&q=80",
     "category": "Diet Foods", "subcategory": "Diabetes Friendly",
     "description": "Spinach, bitter gourd, beans, and fenugreek leaves. Controls blood sugar naturally.",
     "inStock": true, "rating": 4.5, "reviewCount": 38,
     "tags": ["High Fiber", "Sugar Control"],
-    "healthBenefits": ["Regulates blood sugar", "High in dietary fiber", "Low carbohydrate"],
+    "healthBenefits": ["Bitter gourd naturally lowers blood glucose", "High fiber regulates sugar absorption", "Fenugreek leaves improve insulin sensitivity"],
     "targetAudience": ["Diabetes"]
   },
   {
     "id": "203", "name": "Diabetic Salad Bowl", "price": 100, "unit": "300 g",
-    "image": "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=400&q=80",
+    "image": "https://images.unsplash.com/photo-1607532941433-304659e8198a?auto=format&fit=crop&w=400&q=80",
     "category": "Diet Foods", "subcategory": "Diabetes Friendly",
     "description": "Cucumber, tomato, onion, and chickpea salad with lemon dressing.",
     "inStock": true, "rating": 4.4, "reviewCount": 29,
     "tags": ["Low GI", "Protein Rich"],
-    "healthBenefits": ["Low glycemic index", "High protein", "Keeps you full longer"],
+    "healthBenefits": ["Low glycemic index keeps sugar stable", "Chickpeas add protein to keep you full", "Lemon dressing aids nutrient absorption"],
     "targetAudience": ["Diabetes"]
   },
   {
     "id": "204", "name": "Anti-Inflammatory Pack", "price": 130, "unit": "400 g",
-    "image": "https://images.unsplash.com/photo-1598170845058-32b9d6a5da37?auto=format&fit=crop&w=400&q=80",
+    "image": "https://images.unsplash.com/photo-1615485500704-8e990f9900f7?auto=format&fit=crop&w=400&q=80",
     "category": "Diet Foods", "subcategory": "Asthma Friendly",
     "description": "Turmeric-rich vegetables, ginger, garlic, and spinach. Reduces inflammation.",
     "inStock": true, "rating": 4.6, "reviewCount": 21,
     "tags": ["Anti-Inflammatory", "Immunity"],
-    "healthBenefits": ["Reduces airway inflammation", "Rich in antioxidants", "Boosts immunity"],
+    "healthBenefits": ["Turmeric curcumin reduces airway inflammation", "Ginger soothes respiratory passages", "Garlic boosts immune system naturally"],
     "targetAudience": ["Asthma"]
   },
   {
@@ -295,17 +328,17 @@
     "description": "Turmeric, ginger, honey, and black pepper drink. Supports respiratory health.",
     "inStock": true, "rating": 4.5, "reviewCount": 34,
     "tags": ["Herbal", "Respiratory Health"],
-    "healthBenefits": ["Soothes respiratory tract", "Anti-inflammatory", "Natural immunity booster"],
+    "healthBenefits": ["Soothes inflamed respiratory tract", "Black pepper enhances turmeric absorption", "Honey provides natural antibacterial benefits"],
     "targetAudience": ["Asthma"]
   },
   {
     "id": "206", "name": "Heart-Healthy Veggie Mix", "price": 110, "unit": "500 g",
-    "image": "https://images.unsplash.com/photo-1576045057995-568f588f82fb?auto=format&fit=crop&w=400&q=80",
+    "image": "https://images.unsplash.com/photo-1540914124281-342587941389?auto=format&fit=crop&w=400&q=80",
     "category": "Diet Foods", "subcategory": "Heart Healthy",
     "description": "Leafy greens, beets, and garlic. Supports healthy blood pressure.",
     "inStock": true, "rating": 4.3, "reviewCount": 19,
     "tags": ["Heart Healthy", "Low Sodium"],
-    "healthBenefits": ["Supports heart health", "Lowers cholesterol", "Rich in potassium"],
+    "healthBenefits": ["Beetroot lowers blood pressure naturally", "Leafy greens reduce cholesterol levels", "Garlic supports arterial health"],
     "targetAudience": ["Heart"]
   },
 
@@ -316,7 +349,7 @@
     "description": "Chickpea, sprouts, paneer, and mixed greens. 25g protein per serving.",
     "inStock": true, "rating": 4.8, "reviewCount": 95,
     "tags": ["25g Protein", "Post-Workout"],
-    "healthBenefits": ["High protein", "Muscle recovery", "Low fat"],
+    "healthBenefits": ["25g protein per serving for muscle recovery", "Low fat with complex carbs for sustained energy", "Rich in iron and B12 from paneer and sprouts"],
     "targetAudience": ["Gym", "Athletes"]
   },
   {
@@ -326,7 +359,7 @@
     "description": "Banana, peanut butter, oats, and milk smoothie. Perfect post-workout drink.",
     "inStock": true, "rating": 4.7, "reviewCount": 108,
     "tags": ["30g Protein", "Energy Boost"],
-    "healthBenefits": ["Muscle recovery", "Energy replenishment", "High protein"],
+    "healthBenefits": ["30g protein for rapid muscle recovery", "Peanut butter provides healthy fats", "Oats give slow-release energy for endurance"],
     "targetAudience": ["Gym", "Athletes", "Fitness"]
   },
   {
@@ -336,27 +369,27 @@
     "description": "Roasted peanuts with jaggery and seeds mix. High energy gym snack.",
     "inStock": true, "rating": 4.5, "reviewCount": 73,
     "tags": ["High Energy", "Protein Rich"],
-    "healthBenefits": ["Sustained energy", "Healthy fats", "High protein"],
+    "healthBenefits": ["Jaggery provides quick natural energy", "Peanuts deliver 7g protein per handful", "Seeds add omega-3 fatty acids for recovery"],
     "targetAudience": ["Gym", "Athletes"]
   },
   {
     "id": "304", "name": "Boiled Veggie Pack", "price": 90, "unit": "400 g",
-    "image": "https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=400&q=80",
+    "image": "https://images.unsplash.com/photo-1606923829579-0cb981a83e2e?auto=format&fit=crop&w=400&q=80",
     "category": "Sports Nutrition", "subcategory": "Meals",
     "description": "Steamed broccoli, sweet potato, corn, and beans. Clean eating made easy.",
     "inStock": true, "rating": 4.4, "reviewCount": 52,
     "tags": ["Clean Eating", "Low Fat"],
-    "healthBenefits": ["Low fat", "Complex carbs", "High fiber"],
+    "healthBenefits": ["Low fat with zero oil - clean nutrition", "Sweet potato provides slow-release carbs", "Broccoli supports muscle repair with Vitamin K"],
     "targetAudience": ["Gym", "Fitness"]
   },
   {
     "id": "305", "name": "Muscle Recovery Drink", "price": 110, "unit": "400 ml",
-    "image": "https://images.unsplash.com/photo-1622597467836-f3285f2131b8?auto=format&fit=crop&w=400&q=80",
+    "image": "https://images.unsplash.com/photo-1638176066666-ffb2f013c7dd?auto=format&fit=crop&w=400&q=80",
     "category": "Sports Nutrition", "subcategory": "Drinks",
     "description": "Cherry, beetroot, and ginger recovery drink. Reduces muscle soreness.",
     "inStock": true, "rating": 4.6, "reviewCount": 41,
     "tags": ["Recovery", "Anti-Inflammatory"],
-    "healthBenefits": ["Reduces muscle soreness", "Anti-inflammatory", "Restores electrolytes"],
+    "healthBenefits": ["Cherry anthocyanins reduce muscle soreness by 25%", "Beetroot nitrates improve blood flow to muscles", "Ginger reduces post-workout inflammation"],
     "targetAudience": ["Gym", "Athletes"]
   },
   {
@@ -366,7 +399,7 @@
     "description": "Overnight oats with banana, berries, and chia seeds. Pre-workout fuel.",
     "inStock": true, "rating": 4.5, "reviewCount": 64,
     "tags": ["Pre-Workout", "Slow Energy"],
-    "healthBenefits": ["Sustained energy", "Complex carbohydrates", "Rich in fiber"],
+    "healthBenefits": ["Complex carbs fuel 1-2 hours of training", "Chia seeds provide omega-3 for joint health", "Beta-glucan fiber keeps you full and focused"],
     "targetAudience": ["Gym", "Fitness", "Athletes"]
   }
 ]

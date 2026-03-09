@@ -82,13 +82,15 @@ export default function BrowseScreen() {
         {search.length > 0 && <TouchableOpacity onPress={() => setSearch('')}><Icon name="close" size={18} color={COLORS.text.muted} /></TouchableOpacity>}
       </View>
 
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.catToggle}>
-        {ALL_CATEGORIES.map(cat => (
-          <TouchableOpacity key={cat} style={[styles.catChip, activeCategory === cat && styles.catChipActive]} onPress={() => { setActiveCategory(cat); setActiveSub('All'); }}>
-            <Text style={[styles.catChipText, activeCategory === cat && styles.catChipTextActive]} numberOfLines={1}>{cat}</Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
+      <View style={styles.catToggleWrap}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.catToggle}>
+          {ALL_CATEGORIES.map(cat => (
+            <TouchableOpacity key={cat} style={[styles.catChip, activeCategory === cat && styles.catChipActive]} onPress={() => { setActiveCategory(cat); setActiveSub('All'); }}>
+              <Text style={[styles.catChipText, activeCategory === cat && styles.catChipTextActive]} numberOfLines={1}>{cat}</Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </View>
 
       <View style={styles.subRow}>
         {subs.map(sub => (
@@ -115,7 +117,8 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 18, fontWeight: '800', color: COLORS.text.primary },
   searchWrap: { flexDirection: 'row', alignItems: 'center', gap: 8, marginHorizontal: SPACING.base, marginTop: SPACING.sm, backgroundColor: '#FFF', borderRadius: RADIUS.full, paddingHorizontal: 14, paddingVertical: 10, borderWidth: 1, borderColor: COLORS.border },
   searchInput: { flex: 1, fontSize: 14, color: COLORS.text.primary, paddingVertical: 0 },
-  catToggle: { paddingHorizontal: SPACING.base, marginTop: SPACING.md, gap: 8 },
+  catToggleWrap: { marginTop: SPACING.md, height: 38 },
+  catToggle: { paddingHorizontal: SPACING.base, gap: 8, alignItems: 'center' },
   catChip: { paddingVertical: 8, paddingHorizontal: 14, alignItems: 'center', borderRadius: RADIUS.full, borderWidth: 1.5, borderColor: COLORS.border, backgroundColor: '#FFF' },
   catChipActive: { borderColor: COLORS.primary, backgroundColor: '#FFF3E0' },
   catChipText: { fontSize: 12, fontWeight: '700', color: COLORS.text.secondary },

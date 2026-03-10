@@ -9,6 +9,7 @@ import { useThemedStyles } from '@/src/utils/useThemedStyles';
 import { useOrders } from '@/context/OrderContext';
 import { useCart } from '@/context/CartContext';
 import { useWallet } from '@/context/WalletContext';
+import { useReviews } from '@/context/ReviewContext';
 import { getCutLabel } from '@/data/cutTypes';
 import type { Product } from '@/types';
 
@@ -26,6 +27,8 @@ export default function OrderDetailScreen() {
   const { orders, cancelOrder, canCancelOrder } = useOrders();
   const { addToCart } = useCart();
   const { refundToWallet } = useWallet();
+  const { getOrderRating } = useReviews();
+  const orderRating = getOrderRating(id);
   const order = useMemo(() => orders.find(o => o.id === id), [orders, id]);
   const cancelCheck = useMemo(() => id ? canCancelOrder(id) : { canCancel: false, reason: '' }, [id, canCancelOrder]);
 
@@ -221,20 +224,6 @@ export default function OrderDetailScreen() {
           <View style={styles.billRow}><Text style={styles.billLabel}>Delivery Fee</Text><Text style={styles.billValue}>{'\u20B9'}{order.deliveryFee}</Text></View>
           <View style={[styles.billRow, styles.billTotal]}><Text style={styles.billTotalLabel}>Total Paid</Text><Text style={styles.billTotalValue}>{'\u20B9'}{order.total}</Text></View>
         </View>
-        {/* Cancel Order */}
-        {cancelCheck.canCancel && (
-          <TouchableOpacity style={styles.cancelOrderBtn} onPress={handleCancelOrder}>
-            <Icon name="close-circle-outline" size={20} color={COLORS.status.error} />
-            <Text style={styles.cancelOrderBtnText}>Cancel Order</Text>
-          </TouchableOpacity>
-        )}
-        {!cancelCheck.canCancel && order.status !== 'cancelled' && order.status !== 'delivered' && (
-          <View style={styles.cancelInfoBanner}>
-            <Icon name="information-outline" size={16} color="#F57C00" />
-            <Text style={styles.cancelInfoText}>{cancelCheck.reason}</Text>
-          </View>
-        )}
-
         {/* Cancelled + Refund Info */}
         {order.status === 'cancelled' && (
           <View style={styles.cancelledCard}>
@@ -257,11 +246,27 @@ export default function OrderDetailScreen() {
           </View>
         )}
 
-        {/* Reorder */}
-        <TouchableOpacity style={styles.reorderBtn} onPress={handleReorder}>
-          <Icon name="cart-plus" size={20} color="#FFF" />
-          <Text style={styles.reorderBtnText}>Reorder This</Text>
-        </TouchableOpacity>
+        {/* Rate Order */}
+        {order.status === 'delivered' && !orderRating && (
+          <TouchableOpacity style={styles.rateOrderBtn} onPress={() => router.push({ pathname: '/rate-order', params: { orderId: id } } as any)}>
+            <LinearGradient colors={['#FF9800', '#F57C00']} style={styles.rateOrderGrad}>
+              <Icon name="star-outline" size={20} color="#FFF" />
+              <Text style={styles.rateOrderText}>Rate Your Order</Text>
+              <Text style={styles.rateOrderPoints}>+20 pts</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+        )}
+
+        {/* Already Rated Badge */}
+        {order.status === 'delivered' && orderRating && (
+          <View style={styles.ratedBadge}>
+            <Icon name="check-circle" size={18} color={COLORS.green} />
+            <Text style={styles.ratedText}>You rated this order</Text>
+            <View style={styles.ratedStars}>
+              {[1,2,3,4,5].map(s => <Icon key={s} name={s <= orderRating.overallRating ? 'star' : 'star-outline'} size={14} color="#FFD700" />)}
+            </View>
+          </View>
+        )}
 
         {/* Chat with Shop */}
         <View style={[styles.chatCard, themed.card]}>
@@ -301,6 +306,51 @@ export default function OrderDetailScreen() {
               <Icon name="send" size={18} color={inputText.trim() ? '#FFF' : COLORS.text.muted} />
             </TouchableOpacity>
           </View>
+        </View>
+
+        {/* Estimated Delivery Countdown */}
+        {order.status !== 'delivered' && order.status !== 'cancelled' && (
+          <View style={[styles.etaCard, themed.card]}>
+            <Icon name="clock-fast" size={22} color={COLORS.green} />
+            <View style={{ flex: 1, marginLeft: 10 }}>
+              <Text style={[styles.etaTitle, themed.textPrimary]}>Estimated Delivery</Text>
+              <Text style={styles.etaTime}>{order.estimatedDelivery || '30-45 min'}</Text>
+            </View>
+          </View>
+        )}
+
+        {/* Cancel info banner when can't cancel */}
+        {!cancelCheck.canCancel && order.status !== 'cancelled' && order.status !== 'delivered' && (
+          <View style={styles.cancelInfoBanner}>
+            <Icon name="information-outline" size={16} color="#F57C00" />
+            <Text style={styles.cancelInfoText}>{cancelCheck.reason}</Text>
+          </View>
+        )}
+
+        {/* Action Buttons Row */}
+        <View style={styles.actionButtonsRow}>
+          {cancelCheck.canCancel && (
+            <TouchableOpacity style={styles.actionBtn} onPress={handleCancelOrder}>
+              <View style={[styles.actionBtnIcon, { backgroundColor: '#FFEBEE' }]}>
+                <Icon name="close-circle-outline" size={20} color={COLORS.status.error} />
+              </View>
+              <Text style={[styles.actionBtnLabel, { color: COLORS.status.error }]}>Cancel</Text>
+            </TouchableOpacity>
+          )}
+          {order.status !== 'cancelled' && (
+            <TouchableOpacity style={styles.actionBtn} onPress={() => router.push({ pathname: '/report-issue', params: { orderId: id } } as any)}>
+              <View style={[styles.actionBtnIcon, { backgroundColor: '#FFF3E0' }]}>
+                <Icon name="alert-circle-outline" size={20} color="#F57C00" />
+              </View>
+              <Text style={[styles.actionBtnLabel, { color: '#F57C00' }]}>Report</Text>
+            </TouchableOpacity>
+          )}
+          <TouchableOpacity style={styles.actionBtn} onPress={handleReorder}>
+            <View style={[styles.actionBtnIcon, { backgroundColor: '#E8F5E9' }]}>
+              <Icon name="cart-plus" size={20} color={COLORS.primary} />
+            </View>
+            <Text style={[styles.actionBtnLabel, { color: COLORS.primary }]}>Reorder</Text>
+          </TouchableOpacity>
         </View>
 
         <View style={{ height: 30 }} />
@@ -349,8 +399,11 @@ const styles = StyleSheet.create({
   billTotal: { borderTopWidth: 1, borderTopColor: COLORS.border, marginTop: 6, paddingTop: 10 },
   billTotalLabel: { fontSize: 15, fontWeight: '800', color: COLORS.text.primary },
   billTotalValue: { fontSize: 17, fontWeight: '800', color: COLORS.primary },
-  reorderBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: COLORS.primary, borderRadius: RADIUS.full, paddingVertical: 14, marginBottom: SPACING.md },
-  reorderBtnText: { fontSize: 15, fontWeight: '700', color: '#FFF' },
+  // Action Buttons Row
+  actionButtonsRow: { flexDirection: 'row', justifyContent: 'space-evenly', marginTop: SPACING.md, marginBottom: SPACING.md },
+  actionBtn: { alignItems: 'center', gap: 6, minWidth: 72 },
+  actionBtnIcon: { width: 48, height: 48, borderRadius: 14, justifyContent: 'center', alignItems: 'center' },
+  actionBtnLabel: { fontSize: 11, fontWeight: '700' },
   chatCard: { backgroundColor: '#FFF', borderRadius: RADIUS.lg, padding: SPACING.base, marginBottom: SPACING.md, ...SHADOW.sm },
   chatHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: SPACING.md },
   chatTitle: { fontSize: 15, fontWeight: '700', color: COLORS.text.primary, marginLeft: 8, flex: 1 },
@@ -382,8 +435,6 @@ const styles = StyleSheet.create({
   subManageBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: SPACING.sm, paddingVertical: 10, borderRadius: RADIUS.full, borderWidth: 1.5, borderColor: COLORS.primary, backgroundColor: '#E8F5E9' },
   subManageBtnText: { fontSize: 13, fontWeight: '700', color: COLORS.primary },
   // Cancel Order
-  cancelOrderBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 14, borderRadius: RADIUS.full, borderWidth: 1.5, borderColor: COLORS.status.error, marginBottom: SPACING.md },
-  cancelOrderBtnText: { fontSize: 15, fontWeight: '700', color: COLORS.status.error },
   cancelInfoBanner: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#FFF8E1', borderRadius: RADIUS.lg, padding: SPACING.md, marginBottom: SPACING.md },
   cancelInfoText: { flex: 1, fontSize: 12, color: '#F57C00', lineHeight: 17 },
   cancelledCard: { backgroundColor: '#FFEBEE', borderRadius: RADIUS.lg, padding: SPACING.base, marginBottom: SPACING.md },
@@ -393,4 +444,15 @@ const styles = StyleSheet.create({
   cancelledTime: { fontSize: 11, color: COLORS.text.muted, marginBottom: 6 },
   refundBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#E8F5E9', borderRadius: RADIUS.md, paddingHorizontal: 10, paddingVertical: 6, alignSelf: 'flex-start' },
   refundBadgeText: { fontSize: 12, fontWeight: '700', color: COLORS.green },
+  // Rate & Review
+  rateOrderBtn: { borderRadius: RADIUS.lg, overflow: 'hidden', marginBottom: SPACING.md } as any,
+  rateOrderGrad: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: SPACING.base } as any,
+  rateOrderText: { fontSize: 14, fontWeight: '700', color: '#FFF', flex: 1 } as any,
+  rateOrderPoints: { fontSize: 12, fontWeight: '800', color: '#FFF', backgroundColor: 'rgba(255,255,255,0.25)', paddingHorizontal: 10, paddingVertical: 3, borderRadius: RADIUS.full } as any,
+  ratedBadge: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#E8F5E9', borderRadius: RADIUS.lg, padding: SPACING.base, marginBottom: SPACING.md } as any,
+  ratedText: { fontSize: 13, fontWeight: '700', color: COLORS.green, flex: 1 } as any,
+  ratedStars: { flexDirection: 'row', gap: 2 } as any,
+  etaCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF', borderRadius: RADIUS.lg, padding: SPACING.base, marginBottom: SPACING.md, ...SHADOW.sm } as any,
+  etaTitle: { fontSize: 13, fontWeight: '700', color: COLORS.text.primary } as any,
+  etaTime: { fontSize: 15, fontWeight: '800', color: COLORS.green, marginTop: 2 } as any,
 });

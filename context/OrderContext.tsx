@@ -1,11 +1,25 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import type { Order, CartItem, OrderTimeline, Subscription, SkippedDelivery, PaymentMethod } from '@/types';
+import type { Order, CartItem, OrderTimeline, Subscription, SkippedDelivery, PaymentMethod, WeeklyPlan, WeekDay, DayPlanItem } from '@/types';
 
 const ORDERS_KEY = '@cutting_orders';
 
 // Statuses that allow cancellation
 const CANCELLABLE_STATUSES = new Set(['placed', 'confirmed']);
+
+interface PauseResult {
+  success: boolean;
+  message: string;
+  pausedDeliveryCount?: number;
+  estimatedRefund?: number;
+}
+
+interface ResumeResult {
+  success: boolean;
+  message: string;
+  refundAmount?: number;
+  extensionDays?: number;
+}
 
 interface OrderContextType {
   orders: Order[];
@@ -29,8 +43,12 @@ interface OrderContextType {
   canCancelOrder: (orderId: string) => { canCancel: boolean; reason: string };
   skipDelivery: (orderId: string, date: string, reason?: string) => Promise<{ success: boolean; message: string }>;
   unskipDelivery: (orderId: string, date: string) => Promise<void>;
-  getUpcomingDeliveries: (orderId: string, daysAhead?: number) => { date: string; dayLabel: string; isSkipped: boolean; canSkip: boolean }[];
+  getUpcomingDeliveries: (orderId: string, daysAhead?: number) => { date: string; dayLabel: string; isSkipped: boolean; isVacation: boolean; canSkip: boolean; dayPlanItems?: DayPlanItem[]; dayPackName?: string }[];
   updateSubscriptionStatus: (orderId: string, status: 'active' | 'paused' | 'cancelled') => Promise<void>;
+  pauseSubscription: (orderId: string, startDate: string, endDate: string) => Promise<PauseResult>;
+  resumeSubscription: (orderId: string, refundType: 'extend' | 'wallet') => Promise<ResumeResult>;
+  isDateInVacation: (date: string, orderId: string) => boolean;
+  updateWeeklyPlan: (orderId: string, plan: WeeklyPlan) => Promise<void>;
 }
 
 const DEFAULT_CUTOFF_HOURS = 10; // 10 PM previous day
@@ -45,6 +63,10 @@ const OrderContext = createContext<OrderContextType>({
   unskipDelivery: async () => {},
   getUpcomingDeliveries: () => [],
   updateSubscriptionStatus: async () => {},
+  pauseSubscription: async () => ({ success: false, message: '' }),
+  resumeSubscription: async () => ({ success: false, message: '' }),
+  isDateInVacation: () => false,
+  updateWeeklyPlan: async () => {},
 });
 
 function buildTimeline(createdAt: Date): OrderTimeline[] {
@@ -249,14 +271,143 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
     setOrders(updatedOrders);
   }, [orders]);
 
+  // Helper: check if a date string falls within a subscription's vacation pause
+  const isDateInVacation = useCallback((date: string, orderId: string): boolean => {
+    const order = orders.find(o => o.id === orderId);
+    if (!order?.subscription) return false;
+    const sub = order.subscription;
+    if (!sub.pausedFrom || !sub.pausedUntil) return false;
+    return date >= sub.pausedFrom && date <= sub.pausedUntil;
+  }, [orders]);
+
+  // Helper: count delivery days in a date range for a subscription
+  const countDeliveryDaysInRange = useCallback((sub: Subscription, startDate: string, endDate: string): number => {
+    const start = new Date(startDate + 'T00:00:00');
+    const end = new Date(endDate + 'T00:00:00');
+    let count = 0;
+    const current = new Date(start);
+    while (current <= end) {
+      const dayName = current.toLocaleDateString('en-US', { weekday: 'short' });
+      let isDeliveryDay = false;
+      if (sub.frequency === 'daily') {
+        isDeliveryDay = true;
+      } else if (sub.frequency === 'weekly') {
+        isDeliveryDay = dayName === sub.weeklyDay;
+      } else if (sub.frequency === 'monthly') {
+        isDeliveryDay = (sub.monthlyDates || []).includes(current.getDate());
+      }
+      if (isDeliveryDay) count++;
+      current.setDate(current.getDate() + 1);
+    }
+    return count;
+  }, []);
+
+  const pauseSubscription = useCallback(async (orderId: string, startDate: string, endDate: string): Promise<PauseResult> => {
+    const order = orders.find(o => o.id === orderId);
+    if (!order?.subscription) return { success: false, message: 'Subscription not found' };
+    if (order.subscription.status !== 'active') return { success: false, message: 'Only active subscriptions can be paused' };
+
+    const sub = order.subscription;
+
+    // Validate dates
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const start = new Date(startDate + 'T00:00:00');
+    if (start <= today) return { success: false, message: 'Start date must be in the future' };
+    if (startDate >= endDate) return { success: false, message: 'End date must be after start date' };
+
+    // Count delivery days that will be paused
+    const pausedDeliveryCount = countDeliveryDaysInRange(sub, startDate, endDate);
+    if (pausedDeliveryCount === 0) return { success: false, message: 'No deliveries fall in the selected date range' };
+
+    // Estimated refund = paused delivery days * per-delivery cost
+    const estimatedRefund = pausedDeliveryCount * order.total;
+
+    // Bulk-create skipped deliveries for the vacation range
+    const existingSkipped = sub.skippedDeliveries || [];
+    const newSkips: SkippedDelivery[] = [];
+    const current = new Date(start);
+    const end = new Date(endDate + 'T00:00:00');
+    while (current <= end) {
+      const dateStr = current.toISOString().split('T')[0];
+      const dayName = current.toLocaleDateString('en-US', { weekday: 'short' });
+
+      let isDeliveryDay = false;
+      if (sub.frequency === 'daily') isDeliveryDay = true;
+      else if (sub.frequency === 'weekly') isDeliveryDay = dayName === sub.weeklyDay;
+      else if (sub.frequency === 'monthly') isDeliveryDay = (sub.monthlyDates || []).includes(current.getDate());
+
+      if (isDeliveryDay && !existingSkipped.some(s => s.date === dateStr)) {
+        newSkips.push({
+          date: dateStr,
+          reason: 'Vacation pause',
+          skippedAt: new Date().toISOString(),
+          status: 'skipped',
+        });
+      }
+      current.setDate(current.getDate() + 1);
+    }
+
+    const updatedSub: Subscription = {
+      ...sub,
+      status: 'paused',
+      pausedFrom: startDate,
+      pausedUntil: endDate,
+      pausedDays: pausedDeliveryCount,
+      skippedDeliveries: [...existingSkipped, ...newSkips],
+    };
+
+    const updatedOrders = orders.map(o => o.id === orderId ? { ...o, subscription: updatedSub } : o);
+    await AsyncStorage.setItem(ORDERS_KEY, JSON.stringify(updatedOrders));
+    setOrders(updatedOrders);
+
+    return { success: true, message: `Subscription paused. ${pausedDeliveryCount} deliveries will be skipped.`, pausedDeliveryCount, estimatedRefund };
+  }, [orders, countDeliveryDaysInRange]);
+
+  const resumeSubscription = useCallback(async (orderId: string, refundType: 'extend' | 'wallet'): Promise<ResumeResult> => {
+    const order = orders.find(o => o.id === orderId);
+    if (!order?.subscription) return { success: false, message: 'Subscription not found' };
+
+    const sub = order.subscription;
+    if (sub.status !== 'paused') return { success: false, message: 'Subscription is not paused' };
+
+    const pausedDays = sub.pausedDays || 0;
+    const refundAmount = pausedDays * order.total;
+
+    // Remove vacation skips (only those with 'Vacation pause' reason)
+    const remainingSkips = (sub.skippedDeliveries || []).filter(s => s.reason !== 'Vacation pause');
+
+    const updatedSub: Subscription = {
+      ...sub,
+      status: 'active',
+      pausedFrom: undefined,
+      pausedUntil: undefined,
+      pausedDays: undefined,
+      skippedDeliveries: remainingSkips,
+    };
+
+    const updatedOrders = orders.map(o => o.id === orderId ? { ...o, subscription: updatedSub } : o);
+    await AsyncStorage.setItem(ORDERS_KEY, JSON.stringify(updatedOrders));
+    setOrders(updatedOrders);
+
+    if (refundType === 'wallet') {
+      return { success: true, message: `Subscription resumed. ₹${refundAmount} will be credited to your wallet.`, refundAmount };
+    } else {
+      return { success: true, message: `Subscription resumed. Extended by ${pausedDays} delivery days.`, extensionDays: pausedDays };
+    }
+  }, [orders]);
+
   const getUpcomingDeliveries = useCallback((orderId: string, daysAhead: number = 14) => {
     const order = orders.find(o => o.id === orderId);
-    if (!order?.subscription || order.subscription.status !== 'active') return [];
+    if (!order?.subscription || order.subscription.status === 'cancelled') return [];
 
     const sub = order.subscription;
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const deliveries: { date: string; dayLabel: string; isSkipped: boolean; canSkip: boolean }[] = [];
+    const deliveries: { date: string; dayLabel: string; isSkipped: boolean; isVacation: boolean; canSkip: boolean }[] = [];
+
+    // For paused subs, still show upcoming deliveries but mark vacation ones
+    const isPaused = sub.status === 'paused';
 
     // Parse delivery hour for cutoff calculation
     const timeMatch = sub.preferredTime.match(/(\d+):(\d+)\s*(AM|PM)/i);
@@ -285,17 +436,22 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
 
       if (!isDeliveryDay) continue;
 
+      // Check if date is in vacation range
+      const inVacation = isPaused && sub.pausedFrom && sub.pausedUntil
+        ? dateStr >= sub.pausedFrom && dateStr <= sub.pausedUntil
+        : false;
+
       const isSkipped = (sub.skippedDeliveries || []).some(s => s.date === dateStr && s.status === 'skipped');
 
       // Check if cutoff has passed
       const deliveryDateTime = new Date(dateStr + 'T00:00:00');
       deliveryDateTime.setHours(deliveryHour, 0, 0, 0);
       const cutoffTime = new Date(deliveryDateTime.getTime() - cutoffHours * 60 * 60 * 1000);
-      const canSkip = new Date() < cutoffTime;
+      const canSkip = !inVacation && new Date() < cutoffTime;
 
       const dayLabel = i === 0 ? 'Today' : i === 1 ? 'Tomorrow' : d.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' });
 
-      deliveries.push({ date: dateStr, dayLabel, isSkipped, canSkip });
+      deliveries.push({ date: dateStr, dayLabel, isSkipped: isSkipped || inVacation, isVacation: inVacation, canSkip });
     }
 
     return deliveries;
@@ -312,11 +468,23 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
     setOrders(updatedOrders);
   }, [orders]);
 
+  const updateWeeklyPlan = useCallback(async (orderId: string, plan: WeeklyPlan) => {
+    const updatedOrders = orders.map(o => {
+      if (o.id === orderId && o.subscription) {
+        return { ...o, subscription: { ...o.subscription, weeklyPlan: plan } };
+      }
+      return o;
+    });
+    await AsyncStorage.setItem(ORDERS_KEY, JSON.stringify(updatedOrders));
+    setOrders(updatedOrders);
+  }, [orders]);
+
   const value = useMemo(() => ({
     orders, createOrder, refreshOrders: loadOrders,
     cancelOrder, canCancelOrder,
     skipDelivery, unskipDelivery, getUpcomingDeliveries, updateSubscriptionStatus,
-  }), [orders, createOrder, loadOrders, cancelOrder, canCancelOrder, skipDelivery, unskipDelivery, getUpcomingDeliveries, updateSubscriptionStatus]);
+    pauseSubscription, resumeSubscription, isDateInVacation, updateWeeklyPlan,
+  }), [orders, createOrder, loadOrders, cancelOrder, canCancelOrder, skipDelivery, unskipDelivery, getUpcomingDeliveries, updateSubscriptionStatus, pauseSubscription, resumeSubscription, isDateInVacation, updateWeeklyPlan]);
 
   return <OrderContext.Provider value={value}>{children}</OrderContext.Provider>;
 }

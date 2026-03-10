@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar, Image } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar, Image, Alert } from 'react-native';
 import Icon from '@expo/vector-icons/MaterialCommunityIcons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
@@ -9,6 +9,8 @@ import { useOrders } from '@/context/OrderContext';
 import { useAuth } from '@/context/AuthContext';
 import { useScrollContext } from '@/context/ScrollContext';
 import { useThemedStyles } from '@/src/utils/useThemedStyles';
+import { useLoyalty } from '@/context/LoyaltyContext';
+import { useDiet } from '@/context/DietContext';
 
 const MENU_ITEMS = [
   { icon: 'cog-outline', label: 'Settings', color: '#546E7A', route: '/settings' },
@@ -29,6 +31,19 @@ export default function ProfileScreen() {
   const totalSaved = orders.reduce((sum, o) => sum + (o.discount || 0), 0);
   const activeSubscriptions = orders.filter(o => o.subscription?.status === 'active');
   const themed = useThemedStyles();
+  const { loyalty } = useLoyalty();
+  const { familyMembers } = useDiet();
+
+  const EXTRA_MENU_ITEMS = [
+    { icon: 'star-circle', label: 'Loyalty Rewards', desc: `${loyalty.currentBalance} points`, route: '/loyalty', color: '#FFD700' },
+    { icon: 'gift-outline', label: 'Refer & Earn', desc: 'Earn ₹50 per referral', route: '/referral', color: '#E91E63' },
+    { icon: 'chart-line', label: 'Spending Analytics', desc: 'Track your expenses', route: '/spending-analytics', color: '#2196F3' },
+    { icon: 'food-variant', label: 'Diet & Health', desc: familyMembers.length > 0 ? `${familyMembers.length} family members` : 'Set preferences', route: '/diet-preferences', color: '#4CAF50' },
+    { icon: 'content-save-outline', label: 'Saved Carts', desc: 'Your saved orders', route: '/saved-carts', color: '#FF9800' },
+    { icon: 'book-open-variant', label: 'Community Recipes', desc: 'Discover recipes', route: '/community-recipes', color: '#7B1FA2' },
+    { icon: 'ticket-percent', label: 'Offers & Coupons', desc: 'Available discounts', route: '/offers-coupons', color: '#E65100' },
+    { icon: 'airplane', label: 'Vacation Mode', desc: 'Pause deliveries', route: '/vacation-mode', color: '#607D8B' },
+  ];
 
   return (
     <SafeAreaView style={[styles.safe, themed.safeArea]} edges={['top', 'bottom']}>
@@ -46,6 +61,10 @@ export default function ProfileScreen() {
           )}
           <View style={{ flex: 1 }}>
             <Text style={[styles.profileName, themed.textPrimary]}>{user?.name || 'Customer'}</Text>
+            <View style={styles.tierBadge}>
+              <Icon name="shield-star" size={14} color={loyalty.tier === 'gold' ? '#FFD700' : loyalty.tier === 'silver' ? '#C0C0C0' : loyalty.tier === 'platinum' ? '#E5E4E2' : '#CD7F32'} />
+              <Text style={styles.tierText}>{loyalty.tier.charAt(0).toUpperCase() + loyalty.tier.slice(1)}</Text>
+            </View>
             <View style={styles.phoneRow}>
               <Icon name="phone-outline" size={14} color={COLORS.primary} />
               <Text style={styles.profilePhone}>+91 {user?.phone || '98765 43210'}</Text>
@@ -162,11 +181,32 @@ export default function ProfileScreen() {
               <Icon name="chevron-right" size={18} color={COLORS.text.muted} />
             </TouchableOpacity>
           ))}
+          {EXTRA_MENU_ITEMS.map((item, i) => (
+            <TouchableOpacity
+              key={`extra-${i}`}
+              style={styles.menuItem}
+              onPress={() => { if (item.route) router.push(item.route as any); }}
+            >
+              <View style={[styles.menuIcon, { backgroundColor: item.color + '15' }]}>
+                <Icon name={item.icon as any} size={20} color={item.color} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.menuLabel}>{item.label}</Text>
+                <Text style={styles.menuDesc}>{item.desc}</Text>
+              </View>
+              <Icon name="chevron-right" size={18} color={COLORS.text.muted} />
+            </TouchableOpacity>
+          ))}
         </View>
 
         <TouchableOpacity style={styles.logoutBtn} onPress={logout}>
           <Icon name="logout" size={18} color={COLORS.status.error} />
           <Text style={styles.logoutText}>Logout</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.deleteAccountBtn} onPress={() => Alert.alert('Delete Account', 'Are you sure? This will permanently delete your account and all data.', [{ text: 'Cancel', style: 'cancel' }, { text: 'Delete', style: 'destructive', onPress: async () => { await logout(); } }])}>
+          <Icon name="delete-outline" size={20} color={COLORS.status.error} />
+          <Text style={styles.deleteAccountText}>Delete Account</Text>
         </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
@@ -225,4 +265,9 @@ const styles = StyleSheet.create({
   subSkippedCount: { fontSize: 10, fontWeight: '700', color: COLORS.status.error },
   manageBtn: { borderWidth: 1.5, borderColor: COLORS.primary, borderRadius: RADIUS.full, paddingHorizontal: 12, paddingVertical: 6 },
   manageBtnText: { fontSize: 11, fontWeight: '700', color: COLORS.primary },
+  menuDesc: { fontSize: 11, color: COLORS.text.muted, marginTop: 1 },
+  deleteAccountBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginHorizontal: SPACING.base, marginTop: SPACING.md, marginBottom: SPACING.xl, paddingVertical: 12, borderWidth: 1, borderColor: COLORS.status.error, borderRadius: RADIUS.lg },
+  deleteAccountText: { fontSize: 14, fontWeight: '700', color: COLORS.status.error },
+  tierBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(255,215,0,0.15)', borderRadius: RADIUS.full, paddingHorizontal: 10, paddingVertical: 3, marginTop: 4 },
+  tierText: { fontSize: 11, fontWeight: '700', color: '#B8860B' },
 });

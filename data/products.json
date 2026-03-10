@@ -972,5 +972,137 @@
       "Fitness",
       "Athletes"
     ]
+  },
+  {
+    "id": "401",
+    "name": "Watermelon Cubes",
+    "price": 60,
+    "unit": "500 g",
+    "image": "https://images.unsplash.com/photo-1625367601763-03c05b49937e?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTh8fHdhdGVybWVsb24lMjBjdWJlc3xlbnwwfHwwfHx8MA%3D%3D",
+    "category": "Fruits",
+    "subcategory": "Seasonal",
+    "description": "Ready-to-eat fresh watermelon cubes. Perfectly chilled summer snack.",
+    "inStock": true,
+    "rating": 4.6,
+    "reviewCount": 87,
+    "tags": [
+      "Summer Special",
+      "Hydrating"
+    ],
+    "healthBenefits": [
+      "92% water content for hydration",
+      "Rich in lycopene and Vitamin C",
+      "Low calorie refreshing snack"
+    ]
+  },
+  {
+    "id": "402",
+    "name": "Muskmelon",
+    "price": 55,
+    "unit": "1 kg",
+    "image": "https://images.unsplash.com/photo-1571575173700-afb9492e6a50?auto=format&fit=crop&w=400&q=80",
+    "category": "Fruits",
+    "subcategory": "Seasonal",
+    "description": "Sweet, aromatic muskmelon. Nature's coolant for hot summer days.",
+    "inStock": true,
+    "rating": 4.4,
+    "reviewCount": 63,
+    "tags": [
+      "Summer Special",
+      "Cooling"
+    ],
+    "healthBenefits": [
+      "Natural body coolant",
+      "Rich in Vitamin A and C",
+      "High water content for hydration"
+    ]
+  },
+  {
+    "id": "403",
+    "name": "Pineapple Slices",
+    "price": 80,
+    "unit": "400 g",
+    "image": "https://images.unsplash.com/photo-1550828434-e516cdc55aa0?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTB8fHBpbmVhcHBsZSUyMHNsaWNlc3xlbnwwfHwwfHx8MA%3D%3D",
+    "category": "Fruits",
+    "subcategory": "Seasonal",
+    "description": "Fresh-cut pineapple slices. Sweet, tangy and ready to eat.",
+    "inStock": true,
+    "rating": 4.5,
+    "reviewCount": 52,
+    "tags": [
+      "Pre-Cut",
+      "Summer Special"
+    ],
+    "healthBenefits": [
+      "Bromelain enzyme aids digestion",
+      "Rich in manganese for bone health",
+      "Anti-inflammatory properties"
+    ]
+  },
+  {
+    "id": "404",
+    "name": "Mango Cubes",
+    "price": 90,
+    "unit": "400 g",
+    "image": "https://images.unsplash.com/photo-1601493700631-2b16ec4b4716?auto=format&fit=crop&w=400&q=80",
+    "category": "Fruits",
+    "subcategory": "Seasonal",
+    "description": "Fresh Alphonso mango cubes. Ready to eat, no mess!",
+    "inStock": true,
+    "rating": 4.8,
+    "reviewCount": 134,
+    "tags": [
+      "Pre-Cut",
+      "King of Fruits"
+    ],
+    "healthBenefits": [
+      "Rich in Vitamin A for eye health",
+      "Boosts immunity with Vitamin C",
+      "Natural energy from fruit sugars"
+    ]
+  },
+  {
+    "id": "405",
+    "name": "Tender Coconut Water",
+    "price": 50,
+    "unit": "1 pc",
+    "image": "https://plus.unsplash.com/premium_photo-1680497044033-5dc96f699b81?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8OXx8dGVuZGVyJTIwY29jb251dHxlbnwwfHwwfHx8MA%3D%3D",
+    "category": "Healthy Snacks",
+    "subcategory": "Drinks",
+    "description": "Fresh tender coconut water. Nature's best electrolyte drink.",
+    "inStock": true,
+    "rating": 4.7,
+    "reviewCount": 156,
+    "tags": [
+      "Electrolyte",
+      "Summer Essential"
+    ],
+    "healthBenefits": [
+      "Natural electrolytes for rehydration",
+      "Low calorie and fat-free",
+      "Rich in potassium and magnesium"
+    ]
+  },
+  {
+    "id": "406",
+    "name": "Lemon Mint Cooler",
+    "price": 45,
+    "unit": "350 ml",
+    "image": "https://images.unsplash.com/photo-1523677011781-c91d1bbe2f9e?auto=format&fit=crop&w=400&q=80",
+    "category": "Healthy Snacks",
+    "subcategory": "Drinks",
+    "description": "Freshly squeezed lemon juice with mint and a hint of rock salt. Ultimate thirst quencher.",
+    "inStock": true,
+    "rating": 4.5,
+    "reviewCount": 98,
+    "tags": [
+      "No Sugar",
+      "Summer Essential"
+    ],
+    "healthBenefits": [
+      "Vitamin C boosts immunity",
+      "Mint aids digestion and cooling",
+      "Rock salt replenishes lost minerals"
+    ]
   }
 ]

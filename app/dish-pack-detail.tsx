@@ -9,6 +9,7 @@ import { WebView } from 'react-native-webview';
 import { COLORS, SPACING, RADIUS, SHADOW } from '@/src/utils/theme';
 import { useThemedStyles } from '@/src/utils/useThemedStyles';
 import { DISH_PACKS, PACK_SIZES, DEFAULT_PACK_SIZE } from '@/data/dishPacks';
+import { FESTIVAL_PACKS } from '@/data/festivalPacks';
 import { CUT_TYPE_OPTIONS, WEIGHT_OPTIONS, getCutFee } from '@/data/cutTypes';
 import { useCart } from '@/context/CartContext';
 import productsData from '@/data/products.json';
@@ -26,7 +27,7 @@ export default function DishPackDetailScreen() {
   const { addToCart } = useCart();
   const themed = useThemedStyles();
 
-  const pack = useMemo(() => DISH_PACKS.find(p => p.id === id), [id]);
+  const pack = useMemo(() => DISH_PACKS.find(p => p.id === id) || FESTIVAL_PACKS.find(p => p.id === id), [id]);
   const [selectedSize, setSelectedSize] = useState(DEFAULT_PACK_SIZE);
   const [itemWeights, setItemWeights] = useState<Record<string, number>>({});
   const [itemQtys, setItemQtys] = useState<Record<string, number>>({});
@@ -193,60 +194,72 @@ export default function DishPackDetailScreen() {
 
         {/* Pack Items */}
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, themed.textPrimary]}>Pack Items ({allItems.length})</Text>
-          {allItems.map(item => {
-            const product = productsData.find(p => p.id === item.productId);
-            if (!product) return null;
-            const isKg = product.unit.includes('kg');
-            const weight = getItemWeight(item.productId);
-            const qty = getItemQty(item.productId, item.baseQty);
-            const cut = cutSelections[item.productId];
-            const price = calcItemPrice(item.productId, item.baseQty);
+          <View style={styles.itemsHeaderRow}>
+            <Text style={[styles.sectionTitle, themed.textPrimary, { marginBottom: 0 }]}>Pack Items ({allItems.length})</Text>
+            {allItems.length > 3 && <Text style={styles.scrollHint}>Scroll to see all</Text>}
+          </View>
+          <View style={allItems.length > 3 ? styles.itemsScrollWrap : undefined}>
+            <ScrollView
+              nestedScrollEnabled
+              showsVerticalScrollIndicator={allItems.length > 3}
+              style={allItems.length > 3 ? styles.itemsScroll : undefined}
+              contentContainerStyle={styles.itemsContent}
+            >
+              {allItems.map(item => {
+                const product = productsData.find(p => p.id === item.productId);
+                if (!product) return null;
+                const isKg = product.unit.includes('kg');
+                const weight = getItemWeight(item.productId);
+                const qty = getItemQty(item.productId, item.baseQty);
+                const cut = cutSelections[item.productId];
+                const price = calcItemPrice(item.productId, item.baseQty);
 
-            return (
-              <View key={item.productId} style={[styles.itemCard, themed.card]}>
-                <View style={styles.itemHeader}>
-                  <View style={styles.itemImageWrap}><Image source={{ uri: product.image }} style={styles.itemImage} resizeMode="cover" /></View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.itemName}>{product.name}</Text>
-                    <Text style={styles.itemUnit}>{isKg ? (weight >= 1000 ? `${weight/1000} kg` : `${weight}g`) : product.unit}</Text>
+                return (
+                  <View key={item.productId} style={[styles.itemCard, themed.card]}>
+                    <View style={styles.itemHeader}>
+                      <View style={styles.itemImageWrap}><Image source={{ uri: product.image }} style={styles.itemImage} resizeMode="cover" /></View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.itemName}>{product.name}</Text>
+                        <Text style={styles.itemUnit}>{isKg ? (weight >= 1000 ? `${weight/1000} kg` : `${weight}g`) : product.unit}</Text>
+                      </View>
+                      <View style={styles.itemRight}>
+                        <Text style={styles.itemPrice}>{'\u20B9'}{price}</Text>
+                        {item.isExtra && <TouchableOpacity onPress={() => setExtraItems(prev => prev.filter(x => x !== item.productId))}><Icon name="close-circle" size={18} color={COLORS.status.error} /></TouchableOpacity>}
+                      </View>
+                    </View>
+                    {isKg && (
+                      <View style={styles.itemWeightRow}>
+                        {WEIGHT_OPTIONS.map(w => {
+                          const isW = weight === w.grams;
+                          return (
+                            <TouchableOpacity key={w.grams} style={[styles.miniChip, isW && styles.miniChipActive]} onPress={() => setItemWeights(prev => ({ ...prev, [item.productId]: w.grams }))}>
+                              <Text style={[styles.miniChipText, isW && styles.miniChipTextActive]}>{w.label}</Text>
+                            </TouchableOpacity>
+                          );
+                        })}
+                      </View>
+                    )}
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.cutChipsRow}>
+                      {CUT_TYPE_OPTIONS.map(opt => {
+                        const isActive = cut === opt.id;
+                        return (
+                          <TouchableOpacity key={opt.id} style={[styles.cutChip, isActive && styles.cutChipActive]}
+                            onPress={() => setCutSelections(prev => { if (prev[item.productId] === opt.id) { const n = { ...prev }; delete n[item.productId]; return n; } return { ...prev, [item.productId]: opt.id }; })}>
+                            <Text style={[styles.cutChipText, isActive && styles.cutChipTextActive]}>{opt.label}</Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </ScrollView>
+                    <View style={styles.itemQtyRow}>
+                      <TouchableOpacity style={styles.qtyBtn} onPress={() => setItemQtys(prev => ({ ...prev, [item.productId]: Math.max(1, qty - 1) }))}><Icon name="minus" size={14} color={COLORS.primary} /></TouchableOpacity>
+                      <Text style={styles.qtyText}>{qty}</Text>
+                      <TouchableOpacity style={styles.qtyBtn} onPress={() => setItemQtys(prev => ({ ...prev, [item.productId]: qty + 1 }))}><Icon name="plus" size={14} color={COLORS.primary} /></TouchableOpacity>
+                    </View>
                   </View>
-                  <View style={styles.itemRight}>
-                    <Text style={styles.itemPrice}>{'\u20B9'}{price}</Text>
-                    {item.isExtra && <TouchableOpacity onPress={() => setExtraItems(prev => prev.filter(x => x !== item.productId))}><Icon name="close-circle" size={18} color={COLORS.status.error} /></TouchableOpacity>}
-                  </View>
-                </View>
-                {isKg && (
-                  <View style={styles.itemWeightRow}>
-                    {WEIGHT_OPTIONS.map(w => {
-                      const isW = weight === w.grams;
-                      return (
-                        <TouchableOpacity key={w.grams} style={[styles.miniChip, isW && styles.miniChipActive]} onPress={() => setItemWeights(prev => ({ ...prev, [item.productId]: w.grams }))}>
-                          <Text style={[styles.miniChipText, isW && styles.miniChipTextActive]}>{w.label}</Text>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </View>
-                )}
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.cutChipsRow}>
-                  {CUT_TYPE_OPTIONS.map(opt => {
-                    const isActive = cut === opt.id;
-                    return (
-                      <TouchableOpacity key={opt.id} style={[styles.cutChip, isActive && styles.cutChipActive]}
-                        onPress={() => setCutSelections(prev => { if (prev[item.productId] === opt.id) { const n = { ...prev }; delete n[item.productId]; return n; } return { ...prev, [item.productId]: opt.id }; })}>
-                        <Text style={[styles.cutChipText, isActive && styles.cutChipTextActive]}>{opt.label}</Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </ScrollView>
-                <View style={styles.itemQtyRow}>
-                  <TouchableOpacity style={styles.qtyBtn} onPress={() => setItemQtys(prev => ({ ...prev, [item.productId]: Math.max(1, qty - 1) }))}><Icon name="minus" size={14} color={COLORS.primary} /></TouchableOpacity>
-                  <Text style={styles.qtyText}>{qty}</Text>
-                  <TouchableOpacity style={styles.qtyBtn} onPress={() => setItemQtys(prev => ({ ...prev, [item.productId]: qty + 1 }))}><Icon name="plus" size={14} color={COLORS.primary} /></TouchableOpacity>
-                </View>
-              </View>
-            );
-          })}
+                );
+              })}
+            </ScrollView>
+          </View>
         </View>
 
         {/* Extras */}
@@ -369,6 +382,11 @@ const styles = StyleSheet.create({
   sizeServes: { fontSize: 9, color: COLORS.text.muted, marginTop: 2, textAlign: 'center' },
   sizeServesActive: { color: COLORS.primary },
   // Items
+  itemsHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: SPACING.md },
+  scrollHint: { fontSize: 11, color: COLORS.text.muted, fontStyle: 'italic' },
+  itemsScrollWrap: { borderRadius: RADIUS.lg, borderWidth: 1, borderColor: COLORS.border, overflow: 'hidden' },
+  itemsScroll: { maxHeight: 480 },
+  itemsContent: { padding: SPACING.xs },
   itemCard: { backgroundColor: '#FFF', borderRadius: RADIUS.lg, padding: SPACING.md, marginBottom: SPACING.sm, ...SHADOW.sm },
   itemHeader: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   itemImageWrap: { width: 44, height: 44, borderRadius: RADIUS.md, overflow: 'hidden' },

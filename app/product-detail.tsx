@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, StatusBar, TextInput, Modal } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, StatusBar, TextInput, Modal, Share, Alert } from 'react-native';
 import Icon from '@expo/vector-icons/MaterialCommunityIcons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -10,7 +10,11 @@ import { COLORS, SPACING, RADIUS, SHADOW } from '@/src/utils/theme';
 import { useThemedStyles } from '@/src/utils/useThemedStyles';
 import { CUT_TYPE_OPTIONS, WEIGHT_OPTIONS, getCutFee } from '@/data/cutTypes';
 import { useCart } from '@/context/CartContext';
+import { useFavorites } from '@/context/FavoritesContext';
+import { useReviews } from '@/context/ReviewContext';
 import productsData from '@/data/products.json';
+import { NUTRITION_DATA, DEFAULT_NUTRITION } from '@/data/nutrition';
+import { DISH_PACKS } from '@/data/dishPacks';
 import type { CutType, Product } from '@/types';
 
 export default function ProductDetailScreen() {
@@ -18,6 +22,11 @@ export default function ProductDetailScreen() {
   const themed = useThemedStyles();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { addToCart, cartItems } = useCart();
+  const { isFavorite, toggleFavorite } = useFavorites();
+  const { getProductReviews, getAverageRating, markHelpful } = useReviews();
+  const productReviews = getProductReviews(id);
+  const avgRating = getAverageRating(id);
+  const nutrition = NUTRITION_DATA[id] || DEFAULT_NUTRITION;
 
   const product = useMemo(() => productsData.find(p => p.id === id), [id]);
   const isKgProduct = product ? product.unit.includes('kg') : false;
@@ -36,9 +45,27 @@ export default function ProductDetailScreen() {
   const cutFee = getCutFee(selectedCut);
   const totalPrice = (basePrice + cutFee) * quantity;
 
+  const similarProducts = useMemo(() => {
+    if (!product) return [];
+    return productsData.filter(p => p.id !== id && p.category === product.category).slice(0, 10);
+  }, [id, product]);
+
+  const frequentlyBought = useMemo(() => {
+    if (!product) return [];
+    return productsData.filter(p => p.id !== id && p.category !== product.category).slice(0, 8);
+  }, [id, product]);
+
+  const relatedPacks = useMemo(() => {
+    return DISH_PACKS.filter(pack => pack.items.some(i => i.productId === id));
+  }, [id]);
+
   const handleAddToCart = () => {
     addToCart(product as Product, quantity, selectedWeight, selectedCut, instructions || undefined);
     router.back();
+  };
+
+  const handleShare = async () => {
+    try { await Share.share({ message: `Check out ${product?.name} on Chopify! Fresh cut vegetables delivered to your door.` }); } catch {}
   };
 
   return (
@@ -49,9 +76,19 @@ export default function ProductDetailScreen() {
           <Image source={{ uri: product.image }} style={styles.image} resizeMode="cover" />
           <LinearGradient colors={['rgba(0,0,0,0.4)', 'transparent']} style={styles.imageOverlay} />
           <SafeAreaView edges={['top']} style={styles.imageHeaderSafe}>
-            <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-              <Icon name="arrow-left" size={24} color="#FFF" />
-            </TouchableOpacity>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+              <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+                <Icon name="arrow-left" size={24} color="#FFF" />
+              </TouchableOpacity>
+              <View style={styles.headerActions}>
+                <TouchableOpacity onPress={() => toggleFavorite(id)} style={styles.headerActionBtn}>
+                  <Icon name={isFavorite(id) ? 'heart' : 'heart-outline'} size={22} color={isFavorite(id) ? COLORS.primary : COLORS.text.primary} />
+                </TouchableOpacity>
+                <TouchableOpacity onPress={handleShare} style={styles.headerActionBtn}>
+                  <Icon name="share-variant" size={22} color={COLORS.text.primary} />
+                </TouchableOpacity>
+              </View>
+            </View>
           </SafeAreaView>
         </View>
 
@@ -89,6 +126,39 @@ export default function ProductDetailScreen() {
               ))}
             </View>
           )}
+
+          {/* Nutrition Info */}
+          <View style={[styles.nutritionCard, themed.card]}>
+            <View style={styles.nutritionHeader}>
+              <Icon name="leaf" size={14} color={COLORS.primary} />
+              <Text style={[styles.nutritionTitle, themed.textPrimary]}>Nutrition</Text>
+              <Text style={styles.nutritionSub}>per 100g</Text>
+            </View>
+            <View style={styles.nutritionGrid}>
+              {[
+                { label: 'Calories', value: `${nutrition.calories}`, unit: 'kcal', color: '#FF5722' },
+                { label: 'Protein', value: `${nutrition.protein}`, unit: 'g', color: '#2196F3' },
+                { label: 'Carbs', value: `${nutrition.carbs}`, unit: 'g', color: '#FF9800' },
+                { label: 'Fiber', value: `${nutrition.fiber}`, unit: 'g', color: '#4CAF50' },
+                { label: 'Fat', value: `${nutrition.fat}`, unit: 'g', color: '#9C27B0' },
+              ].map(n => (
+                <View key={n.label} style={styles.nutritionItem}>
+                  <Text style={[styles.nutritionItemValue, { color: n.color }]}>{n.value}<Text style={styles.nutritionItemUnit}>{n.unit}</Text></Text>
+                  <Text style={styles.nutritionItemLabel}>{n.label}</Text>
+                </View>
+              ))}
+            </View>
+            {((nutrition.vitamins && nutrition.vitamins.length > 0) || (nutrition.minerals && nutrition.minerals.length > 0)) && (
+              <View style={styles.nutrientTagRow}>
+                {nutrition.vitamins?.map((v, i) => (
+                  <View key={`v${i}`} style={styles.vitaminChip}><Text style={styles.vitaminChipText}>{v}</Text></View>
+                ))}
+                {nutrition.minerals?.map((m, i) => (
+                  <View key={`m${i}`} style={styles.mineralChip}><Text style={styles.mineralChipText}>{m}</Text></View>
+                ))}
+              </View>
+            )}
+          </View>
 
           {/* Weight Selection */}
           {isKgProduct && (
@@ -182,6 +252,110 @@ export default function ProductDetailScreen() {
             {cutFee > 0 && <View style={styles.priceRow}><Text style={styles.priceLabel}>Cutting fee</Text><Text style={[styles.priceValue, { color: COLORS.primary }]}>{'\u20B9'}{cutFee} x {quantity}</Text></View>}
             <View style={[styles.priceRow, styles.priceTotalRow]}><Text style={styles.priceTotalLabel}>Total</Text><Text style={styles.priceTotalValue}>{'\u20B9'}{totalPrice}</Text></View>
           </View>
+
+          {/* Reviews */}
+          <View style={styles.reviewsSection}>
+            <View style={styles.reviewsHeader}>
+              <Text style={[styles.reviewsSectionTitle, themed.textPrimary]}>Reviews ({productReviews.length})</Text>
+              {avgRating > 0 && (
+                <View style={styles.avgRatingBadge}>
+                  <Icon name="star" size={14} color="#FFF" />
+                  <Text style={styles.avgRatingText}>{avgRating}</Text>
+                </View>
+              )}
+            </View>
+            {productReviews.slice(0, 3).map(review => (
+              <View key={review.id} style={[styles.reviewCard, themed.card]}>
+                <View style={styles.reviewHeader}>
+                  <View style={styles.reviewAvatar}><Icon name="account" size={16} color="#FFF" /></View>
+                  <Text style={styles.reviewerName}>{review.userName}</Text>
+                  <View style={styles.reviewStars}>
+                    {[1,2,3,4,5].map(s => <Icon key={s} name={s <= review.rating ? 'star' : 'star-outline'} size={12} color="#FFD700" />)}
+                  </View>
+                </View>
+                <Text style={styles.reviewComment}>{review.comment}</Text>
+                <View style={styles.reviewFooter}>
+                  <Text style={styles.reviewDate}>{new Date(review.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</Text>
+                  <TouchableOpacity style={styles.helpfulBtn} onPress={() => markHelpful(review.id)}>
+                    <Icon name="thumb-up-outline" size={12} color={COLORS.text.muted} />
+                    <Text style={styles.helpfulText}>{review.helpful}</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ))}
+          </View>
+
+          {/* Dish Packs containing this product */}
+          {relatedPacks.length > 0 && (
+            <View style={styles.section}>
+              <Text style={[styles.sectionTitle, themed.textPrimary]}>Available in Packs</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator contentContainerStyle={styles.hScrollContent}>
+                {relatedPacks.map(pack => (
+                  <TouchableOpacity key={pack.id} style={[styles.packCard, themed.card]} onPress={() => router.push({ pathname: '/dish-pack-detail', params: { id: pack.id } })}>
+                    <Image source={{ uri: pack.image }} style={styles.packImage} resizeMode="cover" />
+                    <View style={styles.packInfo}>
+                      <Text style={styles.packName} numberOfLines={1}>{pack.name}</Text>
+                      <Text style={styles.packItems}>{pack.items.length} items</Text>
+                      <Text style={styles.packPrice}>{'\u20B9'}{pack.price}</Text>
+                    </View>
+                    {pack.tag && <View style={styles.packTag}><Text style={styles.packTagText}>{pack.tag}</Text></View>}
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+          )}
+
+          {/* All Dish Packs */}
+          {DISH_PACKS.length > relatedPacks.length && (
+            <View style={styles.section}>
+              <Text style={[styles.sectionTitle, themed.textPrimary]}>Browse Dish Packs</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator contentContainerStyle={styles.hScrollContent}>
+                {DISH_PACKS.filter(p => !relatedPacks.some(r => r.id === p.id)).map(pack => (
+                  <TouchableOpacity key={pack.id} style={[styles.packCard, themed.card]} onPress={() => router.push({ pathname: '/dish-pack-detail', params: { id: pack.id } })}>
+                    <Image source={{ uri: pack.image }} style={styles.packImage} resizeMode="cover" />
+                    <View style={styles.packInfo}>
+                      <Text style={styles.packName} numberOfLines={1}>{pack.name}</Text>
+                      <Text style={styles.packItems}>{pack.items.length} items</Text>
+                      <Text style={styles.packPrice}>{'\u20B9'}{pack.price}</Text>
+                    </View>
+                    {pack.tag && <View style={styles.packTag}><Text style={styles.packTagText}>{pack.tag}</Text></View>}
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+          )}
+
+          {/* Similar Items */}
+          {similarProducts.length > 0 && (
+            <View style={styles.section}>
+              <Text style={[styles.sectionTitle, themed.textPrimary]}>Similar Items</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator contentContainerStyle={styles.hScrollContent}>
+                {similarProducts.map(p => (
+                  <TouchableOpacity key={`sim_${p.id}`} style={[styles.similarCard, themed.card]} onPress={() => router.push({ pathname: '/product-detail', params: { id: p.id } })}>
+                    <Image source={{ uri: p.image }} style={styles.similarImage} resizeMode="cover" />
+                    <Text style={styles.similarName} numberOfLines={1}>{p.name}</Text>
+                    <Text style={styles.similarPrice}>{'\u20B9'}{p.price}</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+          )}
+
+          {/* Frequently Bought Together */}
+          {frequentlyBought.length > 0 && (
+            <View style={styles.section}>
+              <Text style={[styles.sectionTitle, themed.textPrimary]}>Frequently Bought Together</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator contentContainerStyle={styles.hScrollContent}>
+                {frequentlyBought.map(p => (
+                  <TouchableOpacity key={`fbt_${p.id}`} style={[styles.similarCard, themed.card]} onPress={() => router.push({ pathname: '/product-detail', params: { id: p.id } })}>
+                    <Image source={{ uri: p.image }} style={styles.similarImage} resizeMode="cover" />
+                    <Text style={styles.similarName} numberOfLines={1}>{p.name}</Text>
+                    <Text style={styles.similarPrice}>{'\u20B9'}{p.price}</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+          )}
 
           <View style={{ height: 20 }} />
         </View>
@@ -310,4 +484,48 @@ const styles = StyleSheet.create({
   webViewPlayer: { flex: 1 },
   gifContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#000' },
   gifPlayer: { width: '100%', height: '100%' },
+  headerActions: { flexDirection: 'row', gap: 8 },
+  headerActionBtn: { width: 40, height: 40, justifyContent: 'center', alignItems: 'center' },
+  nutritionCard: { marginTop: SPACING.lg, backgroundColor: '#FFF', borderRadius: RADIUS.lg, padding: SPACING.md, ...SHADOW.sm },
+  nutritionHeader: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: SPACING.sm },
+  nutritionTitle: { fontSize: 14, fontWeight: '800', color: COLORS.text.primary },
+  nutritionSub: { fontSize: 10, color: COLORS.text.muted, marginLeft: 'auto' },
+  nutritionGrid: { flexDirection: 'row', justifyContent: 'space-between' },
+  nutritionItem: { alignItems: 'center', flex: 1 },
+  nutritionItemValue: { fontSize: 15, fontWeight: '800' },
+  nutritionItemUnit: { fontSize: 9, fontWeight: '600' },
+  nutritionItemLabel: { fontSize: 9, color: COLORS.text.muted, marginTop: 2 },
+  nutrientTagRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: SPACING.sm, paddingTop: SPACING.sm, borderTopWidth: 1, borderTopColor: COLORS.border },
+  vitaminChip: { backgroundColor: '#E8F5E9', borderRadius: RADIUS.full, paddingHorizontal: 8, paddingVertical: 3 },
+  vitaminChipText: { fontSize: 9, fontWeight: '700', color: COLORS.green },
+  mineralChip: { backgroundColor: '#E3F2FD', borderRadius: RADIUS.full, paddingHorizontal: 8, paddingVertical: 3 },
+  mineralChipText: { fontSize: 9, fontWeight: '700', color: '#1565C0' },
+  reviewsSection: { marginTop: SPACING.xl },
+  reviewsHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: SPACING.md },
+  reviewsSectionTitle: { fontSize: 16, fontWeight: '800', color: COLORS.text.primary },
+  avgRatingBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: COLORS.green, borderRadius: RADIUS.full, paddingHorizontal: 10, paddingVertical: 4 },
+  avgRatingText: { fontSize: 13, fontWeight: '800', color: '#FFF' },
+  reviewCard: { backgroundColor: '#FFF', borderRadius: RADIUS.lg, padding: SPACING.md, marginBottom: SPACING.sm, ...SHADOW.sm },
+  reviewHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 },
+  reviewAvatar: { width: 28, height: 28, borderRadius: 14, backgroundColor: COLORS.text.muted, justifyContent: 'center', alignItems: 'center' },
+  reviewerName: { fontSize: 13, fontWeight: '700', color: COLORS.text.primary, flex: 1 },
+  reviewStars: { flexDirection: 'row', gap: 1 },
+  reviewComment: { fontSize: 12, color: COLORS.text.secondary, lineHeight: 17 },
+  reviewFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 },
+  reviewDate: { fontSize: 10, color: COLORS.text.muted },
+  helpfulBtn: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  helpfulText: { fontSize: 11, color: COLORS.text.muted },
+  hScrollContent: { gap: 10, paddingBottom: 4 },
+  packCard: { width: 140, backgroundColor: '#FFF', borderRadius: RADIUS.md, overflow: 'hidden', ...SHADOW.sm, position: 'relative' as const },
+  packImage: { width: 140, height: 85 },
+  packInfo: { padding: 8 },
+  packName: { fontSize: 12, fontWeight: '700', color: COLORS.text.primary },
+  packItems: { fontSize: 10, color: COLORS.text.muted, marginTop: 2 },
+  packPrice: { fontSize: 13, fontWeight: '800', color: COLORS.primary, marginTop: 2 },
+  packTag: { position: 'absolute' as const, top: 6, left: 6, backgroundColor: COLORS.green, borderRadius: RADIUS.sm, paddingHorizontal: 6, paddingVertical: 2 },
+  packTagText: { fontSize: 8, fontWeight: '700', color: '#FFF' },
+  similarCard: { width: 110, backgroundColor: '#FFF', borderRadius: RADIUS.md, overflow: 'hidden', ...SHADOW.sm },
+  similarImage: { width: 110, height: 75 },
+  similarName: { fontSize: 11, fontWeight: '600', color: COLORS.text.primary, paddingHorizontal: 6, paddingTop: 4 },
+  similarPrice: { fontSize: 12, fontWeight: '800', color: COLORS.primary, paddingHorizontal: 6, paddingBottom: 6 },
 });

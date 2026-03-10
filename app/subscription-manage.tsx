@@ -7,6 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS, SPACING, RADIUS, SHADOW } from '@/src/utils/theme';
 import { useThemedStyles } from '@/src/utils/useThemedStyles';
 import { useOrders } from '@/context/OrderContext';
+import { useDiet } from '@/context/DietContext';
 
 const FREQ_ICONS: Record<string, string> = {
   daily: 'calendar-today',
@@ -18,7 +19,8 @@ export default function SubscriptionManageScreen() {
   const router = useRouter();
   const themed = useThemedStyles();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { orders, skipDelivery, unskipDelivery, getUpcomingDeliveries, updateSubscriptionStatus } = useOrders();
+  const { orders, skipDelivery, unskipDelivery, getUpcomingDeliveries, updateSubscriptionStatus, resumeSubscription } = useOrders();
+  const { vacationMode } = useDiet();
 
   const order = useMemo(() => orders.find(o => o.id === id), [orders, id]);
   const sub = order?.subscription;
@@ -67,15 +69,42 @@ export default function SubscriptionManageScreen() {
 
   const handlePauseResume = useCallback(() => {
     if (!order || !sub) return;
+
+    if (sub.status === 'paused' && sub.pausedFrom && sub.pausedUntil) {
+      // Paused via vacation — prompt with refund options
+      Alert.alert(
+        'Resume Subscription',
+        'This subscription was paused for vacation. How would you like to handle the paused deliveries?',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Extend Subscription',
+            onPress: async () => {
+              const result = await resumeSubscription(order.id, 'extend');
+              Alert.alert('Resumed', result.message);
+            },
+          },
+          {
+            text: 'Wallet Credit',
+            onPress: async () => {
+              const result = await resumeSubscription(order.id, 'wallet');
+              Alert.alert('Resumed', result.message);
+            },
+          },
+        ],
+      );
+      return;
+    }
+
     const newStatus = sub.status === 'active' ? 'paused' : 'active';
     const msg = newStatus === 'paused'
-      ? 'Pause this subscription? No deliveries will be made until you resume.'
+      ? 'Pause this subscription? No deliveries will be made until you resume. For extended pauses, use Vacation Mode.'
       : 'Resume this subscription? Deliveries will start from the next scheduled date.';
     Alert.alert(newStatus === 'paused' ? 'Pause Subscription' : 'Resume Subscription', msg, [
       { text: 'Cancel', style: 'cancel' },
       { text: newStatus === 'paused' ? 'Pause' : 'Resume', onPress: () => updateSubscriptionStatus(order.id, newStatus) },
     ]);
-  }, [order, sub, updateSubscriptionStatus]);
+  }, [order, sub, updateSubscriptionStatus, resumeSubscription]);
 
   const handleCancel = useCallback(() => {
     if (!order) return;
@@ -158,6 +187,77 @@ export default function SubscriptionManageScreen() {
           </LinearGradient>
         </View>
 
+        {/* Pause Duration Banner */}
+        {sub.status === 'paused' && sub.pausedFrom && sub.pausedUntil && (
+          <View style={styles.pauseBanner}>
+            <View style={styles.pauseBannerIcon}>
+              <Icon name="pause-circle" size={24} color="#F57C00" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.pauseBannerTitle}>Subscription Paused</Text>
+              <Text style={styles.pauseBannerDates}>
+                {new Date(sub.pausedFrom).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })} - {new Date(sub.pausedUntil).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+              </Text>
+              {sub.pausedDays != null && (
+                <Text style={styles.pauseBannerDays}>{sub.pausedDays} deliveries paused</Text>
+              )}
+            </View>
+            <Text style={styles.pauseBannerAutoResume}>
+              Auto-resumes{'\n'}{new Date(sub.pausedUntil).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+            </Text>
+          </View>
+        )}
+
+        {/* Weekly Plan Overview */}
+        {sub.weeklyPlan && (
+          <View style={[styles.sectionCard, themed.card]}>
+            <View style={styles.sectionHeader}>
+              <Text style={[styles.sectionTitle, themed.textPrimary]}>Weekly Plan</Text>
+              <TouchableOpacity
+                style={styles.editPlanBtn}
+                onPress={() => router.push({ pathname: '/subscription-plan-editor', params: { id } } as any)}
+              >
+                <Icon name="pencil" size={14} color="#FFF" />
+                <Text style={styles.editPlanBtnText}>Edit Plan</Text>
+              </TouchableOpacity>
+            </View>
+            {(['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const).map(day => {
+              const plan = sub.weeklyPlan![day];
+              if (!plan?.isActive || plan.items.length === 0) return null;
+              return (
+                <View key={day} style={styles.planDayRow}>
+                  <View style={styles.planDayBadge}>
+                    <Text style={styles.planDayBadgeText}>{day}</Text>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    {plan.packName && (
+                      <Text style={styles.planPackLabel}>{plan.packName}</Text>
+                    )}
+                    <Text style={styles.planItemsList} numberOfLines={2}>
+                      {plan.items.map(i => `${i.name} x${i.quantity}`).join(', ')}
+                    </Text>
+                  </View>
+                  <Text style={styles.planDayCount}>{plan.items.length} items</Text>
+                </View>
+              );
+            })}
+          </View>
+        )}
+
+        {!sub.weeklyPlan && (
+          <TouchableOpacity
+            style={[styles.setupPlanBtn, themed.card]}
+            onPress={() => router.push({ pathname: '/subscription-plan-editor', params: { id } } as any)}
+          >
+            <Icon name="calendar-edit" size={22} color={COLORS.primary} />
+            <View style={{ flex: 1, marginLeft: 10 }}>
+              <Text style={[styles.setupPlanTitle, themed.textPrimary]}>Set Up Weekly Plan</Text>
+              <Text style={styles.setupPlanDesc}>Choose different products for each day of the week</Text>
+            </View>
+            <Icon name="chevron-right" size={20} color={COLORS.text.muted} />
+          </TouchableOpacity>
+        )}
+
         {/* Delivery Details */}
         <View style={[styles.detailCard, themed.card]}>
           <Text style={[styles.sectionTitle, themed.textPrimary]}>Delivery Details</Text>
@@ -222,7 +322,7 @@ export default function SubscriptionManageScreen() {
 
           {upcoming.map((delivery, i) => (
             <View key={delivery.date} style={[styles.deliveryRow, i < upcoming.length - 1 && styles.deliveryRowBorder]}>
-              <View style={[styles.deliveryDateCol, delivery.isSkipped && styles.deliveryDateColSkipped]}>
+              <View style={[styles.deliveryDateCol, delivery.isSkipped && !delivery.isVacation && styles.deliveryDateColSkipped, delivery.isVacation && styles.deliveryDateColVacation]}>
                 <Text style={[styles.deliveryDay, delivery.isSkipped && styles.deliveryDaySkipped]}>
                   {new Date(delivery.date).getDate()}
                 </Text>
@@ -237,8 +337,10 @@ export default function SubscriptionManageScreen() {
                 <Text style={styles.deliveryTime}>{sub.preferredTime}</Text>
                 {delivery.isSkipped && (
                   <View style={styles.skippedBadge}>
-                    <Icon name="close-circle" size={12} color={COLORS.status.error} />
-                    <Text style={styles.skippedBadgeText}>Skipped</Text>
+                    <Icon name={delivery.isVacation ? 'airplane' : 'close-circle'} size={12} color={delivery.isVacation ? '#607D8B' : COLORS.status.error} />
+                    <Text style={[styles.skippedBadgeText, delivery.isVacation && { color: '#607D8B' }]}>
+                      {delivery.isVacation ? 'Vacation' : 'Skipped'}
+                    </Text>
                   </View>
                 )}
                 {!delivery.isSkipped && !delivery.canSkip && (
@@ -248,7 +350,12 @@ export default function SubscriptionManageScreen() {
                   </View>
                 )}
               </View>
-              {delivery.isSkipped ? (
+              {delivery.isVacation ? (
+                <View style={styles.vacationDayBadge}>
+                  <Icon name="airplane" size={14} color="#607D8B" />
+                  <Text style={styles.vacationDayText}>Vacation</Text>
+                </View>
+              ) : delivery.isSkipped ? (
                 <TouchableOpacity style={styles.restoreBtn} onPress={() => handleUnskip(delivery.date)}>
                   <Icon name="undo" size={16} color={COLORS.primary} />
                   <Text style={styles.restoreBtnText}>Restore</Text>
@@ -308,6 +415,71 @@ export default function SubscriptionManageScreen() {
               <Text style={styles.cancelBtnText}>Cancel Subscription</Text>
             </TouchableOpacity>
           </View>
+        )}
+
+        {/* Savings Dashboard */}
+        <View style={[styles.savingsCard, themed.card]}>
+          <Text style={[styles.savingsTitle, themed.textPrimary]}>Subscription Savings</Text>
+          <View style={styles.savingsGrid}>
+            <View style={styles.savingsItem}>
+              <Icon name="truck-delivery" size={22} color={COLORS.green} />
+              <Text style={styles.savingsValue}>{'\u20B9'}{(upcoming.filter(d => !d.isSkipped).length * 5)}</Text>
+              <Text style={styles.savingsLabel}>Delivery Saved</Text>
+            </View>
+            <View style={styles.savingsDivider} />
+            <View style={styles.savingsItem}>
+              <Icon name="calendar-check" size={22} color="#1565C0" />
+              <Text style={styles.savingsValue}>{upcoming.filter(d => !d.isSkipped).length}</Text>
+              <Text style={styles.savingsLabel}>Deliveries</Text>
+            </View>
+            <View style={styles.savingsDivider} />
+            <View style={styles.savingsItem}>
+              <Icon name="calendar-remove" size={22} color="#E65100" />
+              <Text style={styles.savingsValue}>{upcoming.filter(d => d.isSkipped).length}</Text>
+              <Text style={styles.savingsLabel}>Skipped</Text>
+            </View>
+          </View>
+        </View>
+
+        <TouchableOpacity style={[styles.calendarLinkBtn, themed.card]} onPress={() => router.push({ pathname: '/subscription-calendar', params: { orderId: id } } as any)}>
+          <Icon name="calendar-month" size={22} color={COLORS.primary} />
+          <View style={{ flex: 1, marginLeft: 10 }}>
+            <Text style={[styles.calendarLinkTitle, themed.textPrimary]}>Delivery Calendar</Text>
+            <Text style={styles.calendarLinkDesc}>View monthly delivery schedule</Text>
+          </View>
+          <Icon name="chevron-right" size={20} color={COLORS.text.muted} />
+        </TouchableOpacity>
+
+        {vacationMode?.isActive && (
+          <View style={styles.vacationBanner}>
+            <Icon name="airplane" size={20} color="#FFF" />
+            <View style={{ flex: 1, marginLeft: 10 }}>
+              <Text style={styles.vacationTitle}>Vacation Mode Active</Text>
+              <Text style={styles.vacationDates}>
+                {new Date(vacationMode.startDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })} - {new Date(vacationMode.endDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                {vacationMode.pausedDeliveryCount ? ` (${vacationMode.pausedDeliveryCount} deliveries)` : ''}
+              </Text>
+              {vacationMode.refundType && (
+                <Text style={styles.vacationRefund}>
+                  {vacationMode.refundType === 'wallet' ? `₹${vacationMode.estimatedRefund || 0} wallet credit` : `${vacationMode.pausedDeliveryCount || 0} days extension`} on resume
+                </Text>
+              )}
+            </View>
+            <TouchableOpacity onPress={() => router.push('/vacation-mode' as any)}>
+              <Text style={styles.vacationManage}>Manage</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {!vacationMode?.isActive && (
+          <TouchableOpacity style={[styles.vacationLinkBtn, themed.card]} onPress={() => router.push('/vacation-mode' as any)}>
+            <Icon name="airplane" size={20} color="#607D8B" />
+            <View style={{ flex: 1, marginLeft: 10 }}>
+              <Text style={[styles.vacationLinkTitle, themed.textPrimary]}>Going on Vacation?</Text>
+              <Text style={styles.vacationLinkDesc}>Pause all deliveries while you're away</Text>
+            </View>
+            <Icon name="chevron-right" size={20} color={COLORS.text.muted} />
+          </TouchableOpacity>
         )}
 
         <View style={{ height: 30 }} />
@@ -375,6 +547,17 @@ const styles = StyleSheet.create({
   overviewStatValue: { fontSize: 16, fontWeight: '800', color: '#FFF' },
   overviewStatLabel: { fontSize: 10, color: 'rgba(255,255,255,0.75)', marginTop: 2 },
   overviewStatDivider: { width: 1, backgroundColor: 'rgba(255,255,255,0.2)' },
+  // Pause banner
+  pauseBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    backgroundColor: '#FFF8E1', borderRadius: RADIUS.lg, padding: SPACING.base,
+    marginBottom: SPACING.md, borderWidth: 1, borderColor: '#FFE082',
+  },
+  pauseBannerIcon: { width: 44, height: 44, borderRadius: 12, backgroundColor: '#FFF3E0', justifyContent: 'center', alignItems: 'center' },
+  pauseBannerTitle: { fontSize: 14, fontWeight: '700', color: '#F57C00' },
+  pauseBannerDates: { fontSize: 12, color: '#E65100', marginTop: 2 },
+  pauseBannerDays: { fontSize: 11, color: '#BF360C', marginTop: 1 },
+  pauseBannerAutoResume: { fontSize: 10, fontWeight: '600', color: '#F57C00', textAlign: 'right' },
   // Detail card
   detailCard: { backgroundColor: '#FFF', borderRadius: RADIUS.lg, padding: SPACING.base, marginBottom: SPACING.md, ...SHADOW.sm },
   detailRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: COLORS.border },
@@ -398,6 +581,9 @@ const styles = StyleSheet.create({
   deliveryRowBorder: { borderBottomWidth: 1, borderBottomColor: COLORS.border },
   deliveryDateCol: { width: 48, height: 48, borderRadius: 12, backgroundColor: '#E8F5E9', justifyContent: 'center', alignItems: 'center' },
   deliveryDateColSkipped: { backgroundColor: '#FFEBEE' },
+  deliveryDateColVacation: { backgroundColor: '#ECEFF1' },
+  vacationDayBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#ECEFF1', borderRadius: RADIUS.full, paddingHorizontal: 10, paddingVertical: 6 },
+  vacationDayText: { fontSize: 11, fontWeight: '600', color: '#607D8B' },
   deliveryDay: { fontSize: 18, fontWeight: '800', color: COLORS.primary },
   deliveryDaySkipped: { color: COLORS.status.error },
   deliveryMonth: { fontSize: 10, fontWeight: '600', color: COLORS.primary },
@@ -445,4 +631,37 @@ const styles = StyleSheet.create({
   modalCancelText: { fontSize: 14, fontWeight: '700', color: COLORS.text.secondary },
   modalConfirmBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 12, borderRadius: RADIUS.full, backgroundColor: COLORS.status.error },
   modalConfirmText: { fontSize: 14, fontWeight: '700', color: '#FFF' },
+  // Savings Dashboard
+  savingsCard: { backgroundColor: '#FFF', borderRadius: RADIUS.lg, padding: SPACING.base, marginTop: SPACING.md, ...SHADOW.sm },
+  savingsTitle: { fontSize: 15, fontWeight: '800', color: COLORS.text.primary, marginBottom: SPACING.md },
+  savingsGrid: { flexDirection: 'row', justifyContent: 'space-around' },
+  savingsItem: { alignItems: 'center', gap: 4 },
+  savingsValue: { fontSize: 18, fontWeight: '800', color: COLORS.text.primary },
+  savingsLabel: { fontSize: 10, color: COLORS.text.muted },
+  savingsDivider: { width: 1, backgroundColor: COLORS.border },
+  // Calendar Link
+  calendarLinkBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF', borderRadius: RADIUS.lg, padding: SPACING.base, marginTop: SPACING.md, ...SHADOW.sm },
+  calendarLinkTitle: { fontSize: 14, fontWeight: '700', color: COLORS.text.primary },
+  calendarLinkDesc: { fontSize: 11, color: COLORS.text.muted, marginTop: 1 },
+  // Vacation
+  vacationBanner: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#607D8B', borderRadius: RADIUS.lg, padding: SPACING.base, marginTop: SPACING.md },
+  vacationTitle: { fontSize: 13, fontWeight: '700', color: '#FFF' },
+  vacationDates: { fontSize: 11, color: 'rgba(255,255,255,0.8)', marginTop: 1 },
+  vacationRefund: { fontSize: 10, color: 'rgba(255,255,255,0.7)', marginTop: 2 },
+  vacationManage: { fontSize: 12, fontWeight: '700', color: '#FFF', textDecorationLine: 'underline' },
+  vacationLinkBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF', borderRadius: RADIUS.lg, padding: SPACING.base, marginTop: SPACING.md, ...SHADOW.sm },
+  vacationLinkTitle: { fontSize: 14, fontWeight: '700', color: COLORS.text.primary },
+  vacationLinkDesc: { fontSize: 11, color: COLORS.text.muted, marginTop: 1 },
+  // Weekly plan overview
+  editPlanBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: COLORS.primary, borderRadius: RADIUS.full, paddingHorizontal: 12, paddingVertical: 6 },
+  editPlanBtnText: { fontSize: 11, fontWeight: '700', color: '#FFF' },
+  planDayRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: COLORS.border },
+  planDayBadge: { width: 36, height: 24, borderRadius: 6, backgroundColor: '#E8F5E9', justifyContent: 'center', alignItems: 'center' },
+  planDayBadgeText: { fontSize: 10, fontWeight: '700', color: COLORS.primary },
+  planPackLabel: { fontSize: 12, fontWeight: '700', color: COLORS.primary },
+  planItemsList: { fontSize: 11, color: COLORS.text.secondary, lineHeight: 16, marginTop: 1 },
+  planDayCount: { fontSize: 10, fontWeight: '600', color: COLORS.text.muted },
+  setupPlanBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF', borderRadius: RADIUS.lg, padding: SPACING.base, marginBottom: SPACING.md, ...SHADOW.sm },
+  setupPlanTitle: { fontSize: 14, fontWeight: '700', color: COLORS.text.primary },
+  setupPlanDesc: { fontSize: 11, color: COLORS.text.muted, marginTop: 1 },
 });

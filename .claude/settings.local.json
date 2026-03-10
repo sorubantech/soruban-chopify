@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//c/Soruban-Retail/ChopifyReceiver/src/utils/**)",
+      "Read(//c/Soruban-Retail/ChopifyReceiver/context/**)",
+      "Read(//c/Soruban-Retail/ChopifyReceiver/types/**)",
+      "Read(//c/Soruban-Retail/ChopifyReceiver/data/**)",
+      "Bash(npx tsc --noEmit)",
+      "Bash(echo \"Exit code: $?\")"
+    ],
+    "additionalDirectories": [
+      "c:\\Soruban-Retail\\SorubanCuttingApp"
+    ]
+  }
+}

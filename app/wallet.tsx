@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, StatusBar } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, StatusBar, TextInput, Alert, Modal } from 'react-native';
 import Icon from '@expo/vector-icons/MaterialCommunityIcons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
@@ -40,7 +40,22 @@ function formatTxDate(isoDate: string): string {
 export default function WalletScreen() {
   const router = useRouter();
   const themed = useThemedStyles();
-  const { balance, transactions } = useWallet();
+  const { balance, transactions, addFunds } = useWallet();
+  const [filter, setFilter] = useState<'all' | 'credit' | 'debit'>('all');
+  const [showTopUp, setShowTopUp] = useState(false);
+  const [topUpAmount, setTopUpAmount] = useState('');
+
+  const filteredTransactions = filter === 'all' ? transactions
+    : transactions.filter(t => t.type === filter);
+
+  const handleTopUp = () => {
+    const amount = parseInt(topUpAmount);
+    if (!amount || amount <= 0) { Alert.alert('Invalid Amount', 'Please enter a valid amount.'); return; }
+    addFunds(amount, 'Wallet Top-up', `Added ₹${amount} to wallet`, 'topup');
+    setTopUpAmount('');
+    setShowTopUp(false);
+    Alert.alert('Success', `₹${amount} added to your wallet!`);
+  };
 
   const renderTransaction = ({ item }: { item: WalletTransaction }) => {
     const iconName = item.type === 'credit'
@@ -110,6 +125,13 @@ export default function WalletScreen() {
         </LinearGradient>
       </View>
 
+      <TouchableOpacity style={styles.addMoneyBtn} onPress={() => setShowTopUp(true)}>
+        <LinearGradient colors={['#1565C0', '#1E88E5']} style={styles.addMoneyGrad}>
+          <Icon name="wallet-plus" size={20} color="#FFF" />
+          <Text style={styles.addMoneyText}>Add Money to Wallet</Text>
+        </LinearGradient>
+      </TouchableOpacity>
+
       {/* How wallet works */}
       <View style={[styles.infoCard, themed.card]}>
         <View style={styles.infoRow}>
@@ -120,8 +142,20 @@ export default function WalletScreen() {
 
       {/* Transactions */}
       <Text style={[styles.sectionTitle, themed.textPrimary]}>Transaction History</Text>
+      {/* Transaction Filters */}
+      <View style={styles.filterRow}>
+        {([
+          { key: 'all' as const, label: 'All' },
+          { key: 'credit' as const, label: 'Credits' },
+          { key: 'debit' as const, label: 'Debits' },
+        ]).map(f => (
+          <TouchableOpacity key={f.key} style={[styles.filterChip, filter === f.key && styles.filterChipActive]} onPress={() => setFilter(f.key)}>
+            <Text style={[styles.filterChipText, filter === f.key && styles.filterChipTextActive]}>{f.label}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
       <FlatList
-        data={transactions}
+        data={filteredTransactions}
         keyExtractor={i => i.id}
         renderItem={renderTransaction}
         contentContainerStyle={styles.list}
@@ -133,6 +167,29 @@ export default function WalletScreen() {
           </View>
         }
       />
+      <Modal visible={showTopUp} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={[styles.topUpCard, themed.card]}>
+            <Text style={[styles.topUpTitle, themed.textPrimary]}>Add Money</Text>
+            <TextInput style={styles.topUpInput} placeholder="Enter amount" keyboardType="numeric" value={topUpAmount} onChangeText={setTopUpAmount} placeholderTextColor={COLORS.text.muted} />
+            <View style={styles.quickAmountRow}>
+              {[100, 200, 500, 1000].map(a => (
+                <TouchableOpacity key={a} style={styles.quickAmountChip} onPress={() => setTopUpAmount(String(a))}>
+                  <Text style={styles.quickAmountText}>₹{a}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            <View style={styles.topUpActions}>
+              <TouchableOpacity style={styles.topUpCancel} onPress={() => setShowTopUp(false)}>
+                <Text style={styles.topUpCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.topUpConfirm} onPress={handleTopUp}>
+                <Text style={styles.topUpConfirmText}>Add Money</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -169,4 +226,24 @@ const styles = StyleSheet.create({
   txAmount: { fontSize: 15, fontWeight: '800' },
   empty: { alignItems: 'center', paddingVertical: 60 },
   emptyText: { fontSize: 14, color: COLORS.text.muted, marginTop: 8 },
+  filterRow: { flexDirection: 'row', marginHorizontal: SPACING.base, marginBottom: SPACING.sm, gap: 6 },
+  filterChip: { paddingVertical: 6, paddingHorizontal: 14, borderRadius: RADIUS.full, borderWidth: 1, borderColor: COLORS.border, backgroundColor: '#FFF' },
+  filterChipActive: { borderColor: COLORS.green, backgroundColor: '#E8F5E9' },
+  filterChipText: { fontSize: 12, fontWeight: '600', color: COLORS.text.secondary },
+  filterChipTextActive: { color: COLORS.green },
+  addMoneyBtn: { marginHorizontal: SPACING.base, marginTop: SPACING.sm, borderRadius: RADIUS.lg, overflow: 'hidden' },
+  addMoneyGrad: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 12 },
+  addMoneyText: { fontSize: 14, fontWeight: '700', color: '#FFF' },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', paddingHorizontal: SPACING.xl },
+  topUpCard: { backgroundColor: '#FFF', borderRadius: RADIUS.xl, padding: SPACING.xl },
+  topUpTitle: { fontSize: 18, fontWeight: '800', color: COLORS.text.primary, marginBottom: SPACING.md },
+  topUpInput: { borderWidth: 1.5, borderColor: COLORS.border, borderRadius: RADIUS.lg, paddingHorizontal: 16, paddingVertical: 12, fontSize: 18, fontWeight: '700', textAlign: 'center' },
+  quickAmountRow: { flexDirection: 'row', gap: 8, marginTop: SPACING.md },
+  quickAmountChip: { flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: RADIUS.md, borderWidth: 1, borderColor: COLORS.border },
+  quickAmountText: { fontSize: 13, fontWeight: '700', color: COLORS.text.primary },
+  topUpActions: { flexDirection: 'row', gap: 10, marginTop: SPACING.xl },
+  topUpCancel: { flex: 1, alignItems: 'center', paddingVertical: 12, borderRadius: RADIUS.lg, borderWidth: 1, borderColor: COLORS.border },
+  topUpCancelText: { fontSize: 14, fontWeight: '700', color: COLORS.text.secondary },
+  topUpConfirm: { flex: 1, alignItems: 'center', paddingVertical: 12, borderRadius: RADIUS.lg, backgroundColor: COLORS.green },
+  topUpConfirmText: { fontSize: 14, fontWeight: '700', color: '#FFF' },
 });

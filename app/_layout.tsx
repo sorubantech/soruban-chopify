@@ -9,6 +9,12 @@ import { OrderProvider } from '@/context/OrderContext';
 import { ThemeProvider, useTheme } from '@/context/ThemeContext';
 import { LanguageProvider } from '@/context/LanguageContext';
 import { WalletProvider } from '@/context/WalletContext';
+import { CouponProvider } from '@/context/CouponContext';
+import { LoyaltyProvider } from '@/context/LoyaltyContext';
+import { ReviewProvider } from '@/context/ReviewContext';
+import { FavoritesProvider } from '@/context/FavoritesContext';
+import { SavedCartProvider } from '@/context/SavedCartContext';
+import { DietProvider } from '@/context/DietContext';
 
 function RootLayoutNav() {
   const { isLoading, isAuthenticated } = useAuth();
@@ -81,6 +87,19 @@ function RootLayoutNav() {
         <Stack.Screen name="edit-profile" />
         <Stack.Screen name="settings" />
         <Stack.Screen name="subscription-manage" />
+        <Stack.Screen name="referral" />
+        <Stack.Screen name="loyalty" />
+        <Stack.Screen name="spending-analytics" />
+        <Stack.Screen name="rate-order" />
+        <Stack.Screen name="report-issue" />
+        <Stack.Screen name="diet-preferences" />
+        <Stack.Screen name="create-pack" />
+        <Stack.Screen name="saved-carts" />
+        <Stack.Screen name="community-recipes" />
+        <Stack.Screen name="subscription-calendar" />
+        <Stack.Screen name="offers-coupons" />
+        <Stack.Screen name="vacation-mode" />
+        <Stack.Screen name="order-confirmation" />
       </Stack>
     </NavThemeProvider>
   );
@@ -92,11 +111,23 @@ export default function RootLayout() {
       <LanguageProvider>
         <AuthProvider>
           <WalletProvider>
-            <CartProvider>
-              <OrderProvider>
-                <RootLayoutNav />
-              </OrderProvider>
-            </CartProvider>
+            <LoyaltyProvider>
+              <CouponProvider>
+                <ReviewProvider>
+                  <FavoritesProvider>
+                    <SavedCartProvider>
+                      <DietProvider>
+                        <CartProvider>
+                          <OrderProvider>
+                            <RootLayoutNav />
+                          </OrderProvider>
+                        </CartProvider>
+                      </DietProvider>
+                    </SavedCartProvider>
+                  </FavoritesProvider>
+                </ReviewProvider>
+              </CouponProvider>
+            </LoyaltyProvider>
           </WalletProvider>
         </AuthProvider>
       </LanguageProvider>

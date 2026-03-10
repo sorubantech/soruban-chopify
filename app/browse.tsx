@@ -7,6 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS, SPACING, RADIUS, SHADOW } from '@/src/utils/theme';
 import { useThemedStyles } from '@/src/utils/useThemedStyles';
 import productsData from '@/data/products.json';
+import { useFavorites } from '@/context/FavoritesContext';
 
 const ALL_CATEGORIES = ['Vegetables', 'Fruits', 'Healthy Snacks', 'Diet Foods', 'Sports Nutrition'];
 
@@ -27,18 +28,27 @@ export default function BrowseScreen() {
   const [activeCategory, setActiveCategory] = useState(category || 'Vegetables');
   const [activeSub, setActiveSub] = useState('All');
   const [search, setSearch] = useState('');
+  const { isFavorite, toggleFavorite } = useFavorites();
+  const [sortBy, setSortBy] = useState<'default' | 'price_low' | 'price_high' | 'name'>('default');
+  const [showOutOfStock, setShowOutOfStock] = useState(true);
 
   const subs = SUBCATEGORIES[activeCategory] || ['All'];
 
   const products = useMemo(() => {
-    let filtered = productsData.filter(p => p.category === activeCategory && p.inStock !== false);
+    let filtered = productsData.filter(p => p.category === activeCategory);
     if (activeSub !== 'All') filtered = filtered.filter(p => p.subcategory === activeSub);
     if (search.trim()) {
       const q = search.toLowerCase();
       filtered = filtered.filter(p => p.name.toLowerCase().includes(q));
     }
-    return filtered;
-  }, [activeCategory, activeSub, search]);
+    // Sort & filter
+    let sortedProducts = [...filtered];
+    if (!showOutOfStock) sortedProducts = sortedProducts.filter(p => p.inStock !== false);
+    if (sortBy === 'price_low') sortedProducts.sort((a, b) => a.price - b.price);
+    else if (sortBy === 'price_high') sortedProducts.sort((a, b) => b.price - a.price);
+    else if (sortBy === 'name') sortedProducts.sort((a, b) => a.name.localeCompare(b.name));
+    return sortedProducts;
+  }, [activeCategory, activeSub, search, sortBy, showOutOfStock]);
 
   const cardW = (width - SPACING.base * 2 - 10) / 2;
 
@@ -50,6 +60,8 @@ export default function BrowseScreen() {
       <View style={styles.cardImageWrap}>
         <Image source={{ uri: item.image }} style={styles.cardImage} resizeMode="cover" />
         {item.discount && <View style={styles.discountTag}><Text style={styles.discountText}>{item.discount}</Text></View>}
+        <TouchableOpacity style={styles.favBtn} onPress={() => toggleFavorite(item.id)}><Icon name={isFavorite(item.id) ? 'heart' : 'heart-outline'} size={18} color={isFavorite(item.id) ? COLORS.primary : '#999'} /></TouchableOpacity>
+        {item.inStock === false && <View style={styles.outOfStockOverlay}><Text style={styles.outOfStockText}>Out of Stock</Text></View>}
       </View>
       <View style={styles.cardBody}>
         <Text style={styles.cardName} numberOfLines={1}>{item.name}</Text>
@@ -102,6 +114,25 @@ export default function BrowseScreen() {
         ))}
       </View>
 
+      {/* Sort & Filter Bar */}
+      <View style={styles.sortBar}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.sortChips}>
+          {([
+            { key: 'default', label: 'Relevance' },
+            { key: 'price_low', label: 'Price: Low-High' },
+            { key: 'price_high', label: 'Price: High-Low' },
+            { key: 'name', label: 'Name A-Z' },
+          ] as const).map(s => (
+            <TouchableOpacity key={s.key} style={[styles.sortChip, sortBy === s.key && styles.sortChipActive]} onPress={() => setSortBy(s.key)}>
+              <Text style={[styles.sortChipText, sortBy === s.key && styles.sortChipTextActive]}>{s.label}</Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+        <TouchableOpacity style={styles.stockToggle} onPress={() => setShowOutOfStock(!showOutOfStock)}>
+          <Icon name={showOutOfStock ? 'eye' : 'eye-off'} size={16} color={COLORS.text.muted} />
+        </TouchableOpacity>
+      </View>
+
       <FlatList
         data={products} numColumns={2} keyExtractor={i => i.id} renderItem={renderProduct}
         contentContainerStyle={styles.grid} columnWrapperStyle={styles.gridRow} showsVerticalScrollIndicator={false}
@@ -148,4 +179,14 @@ const styles = StyleSheet.create({
   addBtnText: { fontSize: 12, fontWeight: '800', color: COLORS.primary },
   empty: { alignItems: 'center', paddingVertical: 60 },
   emptyText: { fontSize: 14, color: COLORS.text.muted, marginTop: 8 },
+  sortBar: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: SPACING.base, marginBottom: SPACING.sm },
+  sortChips: { gap: 6, paddingRight: 8 },
+  sortChip: { paddingVertical: 5, paddingHorizontal: 12, borderRadius: RADIUS.full, borderWidth: 1, borderColor: COLORS.border, backgroundColor: '#FFF' },
+  sortChipActive: { borderColor: COLORS.green, backgroundColor: '#EAF7EB' },
+  sortChipText: { fontSize: 11, fontWeight: '600', color: COLORS.text.secondary },
+  sortChipTextActive: { color: COLORS.green },
+  stockToggle: { padding: 6 },
+  favBtn: { position: 'absolute', top: 6, right: 6, width: 28, height: 28, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.9)', justifyContent: 'center', alignItems: 'center', zIndex: 1 },
+  outOfStockOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(255,255,255,0.7)', justifyContent: 'center', alignItems: 'center', borderRadius: RADIUS.lg },
+  outOfStockText: { fontSize: 12, fontWeight: '700', color: COLORS.status.error },
 });

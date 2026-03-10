@@ -1,7 +1,7 @@
 import React, { useMemo, useRef, useEffect, useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  Image, useWindowDimensions, StatusBar, FlatList,
+  Image, useWindowDimensions, StatusBar, FlatList, Alert,
 } from 'react-native';
 import Icon from '@expo/vector-icons/MaterialCommunityIcons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -15,6 +15,10 @@ import AnimatedSearchPlaceholder from '@/src/components/AnimatedSearchPlaceholde
 import { useThemedStyles } from '@/src/utils/useThemedStyles';
 import { DISH_PACKS } from '@/data/dishPacks';
 import productsData from '@/data/products.json';
+import { useOrders } from '@/context/OrderContext';
+import { useLoyalty } from '@/context/LoyaltyContext';
+import { SEASONAL_PICKS } from '@/data/recipes';
+import { FESTIVAL_PACKS } from '@/data/festivalPacks';
 
 const CATEGORIES = [
   { key: 'Vegetables', label: 'Vegetables', image: 'https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=200&q=80', color: '#E8F5E9' },
@@ -25,7 +29,7 @@ const CATEGORIES = [
 ];
 
 const OFFERS = [
-  { id: '1', title: 'Fresh Cut Vegetables & Fruits', desc: 'Select your veggies, choose your cut style & we deliver!', bg: ['#388E3C', '#4CAF50'] as const, icon: 'shopping' as const, route: '/browse', params: { category: 'Vegetables' }, btn: 'Order Now' },
+  { id: '1', title: 'Fresh Cut Vegetables & Fruits', desc: 'Select your veggies, choose your cut style', bg: ['#388E3C', '#4CAF50'] as const, icon: 'shopping' as const, route: '/browse', params: { category: 'Vegetables' }, btn: 'Order Now' },
   { id: '2', title: 'Free Cutting on First Order', desc: 'Choose any cut style absolutely free!', bg: ['#1565C0', '#1E88E5'] as const, icon: 'tag-outline' as const, route: null, params: null, btn: '' },
   { id: '3', title: 'Dish Packs from \u20B995', desc: 'Sambar, Biryani & more - pre-cut for your dish!', bg: ['#E65100', '#F57C00'] as const, icon: 'food-variant' as const, route: '/(tabs)/packs', params: null, btn: 'View Packs' },
   { id: '4', title: 'Healthy Diet Packs', desc: 'Low calorie, high protein foods for fitness lovers', bg: ['#7B1FA2', '#9C27B0'] as const, icon: 'heart-pulse' as const, route: '/browse', params: { category: 'Diet Foods' }, btn: 'Explore' },
@@ -34,6 +38,13 @@ const OFFERS = [
 
 const POPULAR_IDS = ['1', '4', '13', '7', '19', '22', '11', '23'];
 
+const LIFESTYLE_TABS = [
+  { key: 'healthy', label: 'Healthy Snacks', icon: 'food-apple-outline' as const, color: '#43A047', category: 'Healthy Snacks' },
+  { key: 'diet', label: 'Diet Foods', icon: 'heart-pulse' as const, color: '#1E88E5', category: 'Diet Foods' },
+  { key: 'sports', label: 'Sports & Gym', icon: 'dumbbell' as const, color: '#E53935', category: 'Sports Nutrition' },
+] as const;
+
+/* ─── Offers Carousel ─── */
 function OffersCarousel({ width }: { width: number }) {
   const flatListRef = useRef<FlatList>(null);
   const [activeIndex, setActiveIndex] = useState(0);
@@ -103,6 +114,7 @@ function OffersCarousel({ width }: { width: number }) {
   );
 }
 
+/* ─── Add To Cart Button ─── */
 function AddToCartButton({ item }: { item: any }) {
   const { cartItems, addToCart, updateQuantity } = useCart();
   const inCart = cartItems.find((c) => c.id === item.id);
@@ -139,23 +151,68 @@ function AddToCartButton({ item }: { item: any }) {
   );
 }
 
+/* ─── Product Mini Card (reusable) ─── */
+function ProductMiniCard({ item, themed }: { item: any; themed: any }) {
+  const router = useRouter();
+  return (
+    <TouchableOpacity
+      style={[styles.miniCard, themed.card]}
+      activeOpacity={0.85}
+      onPress={() => router.push({ pathname: '/product-detail', params: { id: item.id } })}
+    >
+      <Image source={{ uri: item.image }} style={styles.miniImage} resizeMode="cover" />
+      <View style={styles.miniBody}>
+        <Text style={styles.miniName} numberOfLines={1}>{item.name}</Text>
+        <View style={styles.miniPriceRow}>
+          <Text style={styles.miniPrice}>{'\u20B9'}{item.price}</Text>
+          <AddToCartButton item={item} />
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
+}
+
+/* ─── Home Screen ─── */
 export default function HomeScreen() {
   const router = useRouter();
   const { width } = useWindowDimensions();
   const { handleScroll } = useScrollContext();
   const { user } = useAuth();
   const themed = useThemedStyles();
+  const [lifestyleTab, setLifestyleTab] = useState<'healthy' | 'diet' | 'sports'>('healthy');
 
   const popularProducts = useMemo(() => productsData.filter(p => POPULAR_IDS.includes(p.id)), []);
   const healthySnacks = useMemo(() => productsData.filter(p => p.category === 'Healthy Snacks').slice(0, 6), []);
   const dietFoods = useMemo(() => productsData.filter(p => p.category === 'Diet Foods').slice(0, 6), []);
   const sportsFoods = useMemo(() => productsData.filter(p => p.category === 'Sports Nutrition').slice(0, 6), []);
+  const { orders } = useOrders();
+  const { loyalty, dailyCheckIn } = useLoyalty();
+
+  const recentlyOrdered = useMemo(() => {
+    const itemIds = new Set<string>();
+    orders.slice(0, 5).forEach(o => o.items.forEach(i => { if (itemIds.size < 8) itemIds.add(i.id); }));
+    return productsData.filter(p => itemIds.has(p.id));
+  }, [orders]);
+
+  const newArrivals = useMemo(() => productsData.filter(p => p.tags?.includes('new') || p.tags?.includes('seasonal')).slice(0, 6), []);
+  const currentSeason = useMemo(() => SEASONAL_PICKS[0], []);
+  const seasonalProducts = useMemo(() => productsData.filter(p => currentSeason.productIds.includes(p.id)), [currentSeason]);
+
+  const lifestyleProducts = useMemo(() => {
+    if (lifestyleTab === 'healthy') return healthySnacks;
+    if (lifestyleTab === 'diet') return dietFoods;
+    return sportsFoods;
+  }, [lifestyleTab, healthySnacks, dietFoods, sportsFoods]);
+
+  const activeLifestyle = LIFESTYLE_TABS.find(t => t.key === lifestyleTab)!;
+
   const cardW = (width - SPACING.base * 2 - 10) / 2;
 
   return (
     <SafeAreaView style={[styles.safe, themed.safeArea]} edges={['top', 'bottom']}>
       <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
 
+      {/* ─── Header ─── */}
       <LinearGradient colors={themed.headerGradient} style={styles.header}>
         <View style={styles.headerRow}>
           <View>
@@ -185,7 +242,6 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        {/* Search Bar */}
         <TouchableOpacity
           style={styles.searchBar}
           onPress={() => router.push('/search')}
@@ -197,10 +253,11 @@ export default function HomeScreen() {
       </LinearGradient>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll} onScroll={handleScroll} scrollEventThrottle={16}>
-        {/* Offers Carousel */}
+
+        {/* ━━━ 1. OFFERS CAROUSEL ━━━ */}
         <OffersCarousel width={width} />
 
-        {/* Categories */}
+        {/* ━━━ 2. CATEGORIES ━━━ */}
         <Text style={[styles.sectionTitle, themed.textPrimary]}>Shop by Category</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryScroll}>
           {CATEGORIES.map(cat => (
@@ -216,40 +273,56 @@ export default function HomeScreen() {
           ))}
         </ScrollView>
 
-        {/* Dish Packs Banner */}
-        <TouchableOpacity style={styles.packsBanner} onPress={() => router.push('/(tabs)/packs')} activeOpacity={0.85}>
-          <LinearGradient colors={COLORS.gradient.green} style={styles.packsGrad}>
-            <View style={styles.packsContent}>
-              <Icon name="food-variant" size={36} color="#FFF" />
-              <View style={{ flex: 1 }}>
-                <Text style={styles.packsTitle}>Dish Packs</Text>
-                <Text style={styles.packsDesc}>Sambar, Biryani, Fish Gravy & more - all veggies pre-cut for your dish!</Text>
-              </View>
-              <Icon name="chevron-right" size={20} color="#FFF" />
-            </View>
-          </LinearGradient>
-        </TouchableOpacity>
+        {/* ━━━ QUICK ACCESS CARD ━━━ */}
+        <View style={[styles.quickAccessCard, themed.card]}>
+          <View style={styles.quickAccessGrid}>
+            {([
+              { icon: 'ticket-percent' as const, label: 'Offers', color: '#E65100', bg: '#FFF3E0', route: '/offers-coupons' },
+              { icon: 'star-circle' as const, label: 'Rewards', color: '#7B1FA2', bg: '#F3E5F5', route: '/loyalty' },
+              { icon: 'book-open-variant' as const, label: 'Recipes', color: '#00897B', bg: '#E0F2F1', route: '/community-recipes' },
+              { icon: 'package-variant' as const, label: 'My Pack', color: COLORS.green, bg: '#E8F5E9', route: '/create-pack' },
+              { icon: 'cart-heart' as const, label: 'Saved Carts', color: '#E91E63', bg: '#FCE4EC', route: '/saved-carts' },
+              { icon: 'food-apple' as const, label: 'Diet Plan', color: '#FF6F00', bg: '#FFF8E1', route: '/diet-preferences' },
+              { icon: 'chart-line' as const, label: 'Analytics', color: '#1565C0', bg: '#E3F2FD', route: '/spending-analytics' },
+              { icon: 'account-group' as const, label: 'Referral', color: '#6D4C41', bg: '#EFEBE9', route: '/referral' },
+            ] as const).map((item) => (
+              <TouchableOpacity
+                key={item.route}
+                style={styles.quickAccessItem}
+                onPress={() => router.push(item.route as any)}
+                activeOpacity={0.7}
+              >
+                <View style={[styles.quickAccessIconWrap, { backgroundColor: item.bg }]}>
+                  <Icon name={item.icon} size={22} color={item.color} />
+                </View>
+                <Text style={styles.quickAccessLabel} numberOfLines={1}>{item.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
 
-        {/* How It Works */}
-        {/* <Text style={styles.sectionTitle}>How It Works</Text>
-        <View style={styles.stepsRow}>
-          {[
-            { icon: 'cart-outline', label: 'Select Items', color: '#E3F2FD' },
-            { icon: 'knife', label: 'Choose Cut', color: '#E8F5E9' },
-            { icon: 'package-variant-closed', label: 'We Pack', color: '#E8F5E9' },
-            { icon: 'truck-delivery', label: 'Delivered!', color: '#FCE4EC' },
-          ].map((step, i) => (
-            <View key={i} style={[styles.stepCard, { backgroundColor: step.color }]}>
-              <Icon name={step.icon as any} size={24} color={COLORS.text.primary} />
-              <Text style={styles.stepLabel}>{step.label}</Text>
+        {/* ━━━ 3. RECENTLY ORDERED (conditional) ━━━ */}
+        {recentlyOrdered.length > 0 && (
+          <>
+            <View style={styles.sectionHeaderRow}>
+              <Text style={[styles.sectionTitle, themed.textPrimary, { marginTop: 0, marginBottom: 0 }]}>Recently Ordered</Text>
+              <TouchableOpacity onPress={() => router.push('/(tabs)/orders')}><Text style={styles.viewAllLink}>View Orders</Text></TouchableOpacity>
             </View>
-          ))}
-        </View> */}
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.horizontalList}>
+              {recentlyOrdered.map(item => (
+                <ProductMiniCard key={`recent_${item.id}`} item={item} themed={themed} />
+              ))}
+            </ScrollView>
+          </>
+        )}
 
-        {/* Popular Items */}
-        <Text style={[styles.sectionTitle, themed.textPrimary]}>Popular Items</Text>
+        {/* ━━━ 4. POPULAR ITEMS (compact 4-item grid) ━━━ */}
+        <View style={styles.sectionHeaderRow}>
+          <Text style={[styles.sectionTitle, themed.textPrimary, { marginTop: 0, marginBottom: 0 }]}>Popular Items</Text>
+          <TouchableOpacity onPress={() => router.push('/browse' as any)}><Text style={styles.viewAllLink}>View All</Text></TouchableOpacity>
+        </View>
         <View style={styles.popularGrid}>
-          {popularProducts.map(item => (
+          {popularProducts.slice(0, 4).map(item => (
             <TouchableOpacity
               key={item.id}
               style={[styles.productCard, { width: cardW }, themed.card]}
@@ -271,8 +344,19 @@ export default function HomeScreen() {
           ))}
         </View>
 
-        {/* Dish Pack Carousel */}
-        <Text style={[styles.sectionTitle, themed.textPrimary]}>Quick Dish Packs</Text>
+        {/* ━━━ 5. DISH PACKS (banner + carousel) ━━━ */}
+        <TouchableOpacity style={styles.packsBanner} onPress={() => router.push('/(tabs)/packs')} activeOpacity={0.85}>
+          <LinearGradient colors={COLORS.gradient.green} style={styles.packsGrad}>
+            <View style={styles.packsContent}>
+              <Icon name="food-variant" size={32} color="#FFF" />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.packsTitle}>Dish Packs</Text>
+                <Text style={styles.packsDesc}>Pre-cut veggies for Sambar, Biryani, Fish Gravy & more!</Text>
+              </View>
+              <Icon name="chevron-right" size={20} color="#FFF" />
+            </View>
+          </LinearGradient>
+        </TouchableOpacity>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.packsScroll}>
           {DISH_PACKS.slice(0, 5).map(pack => (
             <TouchableOpacity
@@ -291,22 +375,27 @@ export default function HomeScreen() {
           ))}
         </ScrollView>
 
-        {/* Healthy Snacks Section */}
-        <View style={styles.sectionBanner}>
-          <LinearGradient colors={['#66BB6A', '#43A047']} style={styles.sectionBannerGrad}>
-            <Icon name="food-apple-outline" size={28} color="#FFF" />
-            <View style={{ flex: 1, marginLeft: 12 }}>
-              <Text style={styles.sectionBannerTitle}>Healthy Snacks</Text>
-              <Text style={styles.sectionBannerDesc}>Salads, juices & snacks for office, school & college</Text>
-            </View>
-            <TouchableOpacity onPress={() => router.push({ pathname: '/browse', params: { category: 'Healthy Snacks' } })}>
-              <Text style={styles.sectionBannerLink}>View All</Text>
-            </TouchableOpacity>
-          </LinearGradient>
+        {/* ━━━ 6. EXPLORE BY LIFESTYLE (tabbed section) ━━━ */}
+        <Text style={[styles.sectionTitle, themed.textPrimary]}>Explore by Lifestyle</Text>
+        <View style={styles.lifestyleTabsRow}>
+          {LIFESTYLE_TABS.map(tab => {
+            const isActive = lifestyleTab === tab.key;
+            return (
+              <TouchableOpacity
+                key={tab.key}
+                style={[styles.lifestyleTab, isActive && { backgroundColor: tab.color }]}
+                onPress={() => setLifestyleTab(tab.key)}
+                activeOpacity={0.8}
+              >
+                <Icon name={tab.icon} size={16} color={isActive ? '#FFF' : COLORS.text.secondary} />
+                <Text style={[styles.lifestyleTabText, isActive && { color: '#FFF' }]}>{tab.label}</Text>
+              </TouchableOpacity>
+            );
+          })}
         </View>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.horizontalList}>
-          {healthySnacks.map(item => (
-            <TouchableOpacity key={item.id} style={[styles.miniCard, themed.card]} activeOpacity={0.85}
+          {lifestyleProducts.map(item => (
+            <TouchableOpacity key={`lifestyle_${item.id}`} style={[styles.miniCard, themed.card]} activeOpacity={0.85}
               onPress={() => router.push({ pathname: '/product-detail', params: { id: item.id } })}>
               <Image source={{ uri: item.image }} style={styles.miniImage} resizeMode="cover" />
               <View style={styles.miniBody}>
@@ -316,89 +405,66 @@ export default function HomeScreen() {
                   <AddToCartButton item={item} />
                 </View>
                 {item.tags && item.tags[0] && (
-                  <View style={styles.miniTag}><Text style={styles.miniTagText}>{item.tags[0]}</Text></View>
-                )}
-              </View>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-
-        {/* Diet Foods Section */}
-        <View style={styles.sectionBanner}>
-          <LinearGradient colors={['#42A5F5', '#1E88E5']} style={styles.sectionBannerGrad}>
-            <Icon name="heart-pulse" size={28} color="#FFF" />
-            <View style={{ flex: 1, marginLeft: 12 }}>
-              <Text style={styles.sectionBannerTitle}>Diet Foods</Text>
-              <Text style={styles.sectionBannerDesc}>Special foods for diabetes, asthma & heart health</Text>
-            </View>
-            <TouchableOpacity onPress={() => router.push({ pathname: '/browse', params: { category: 'Diet Foods' } })}>
-              <Text style={styles.sectionBannerLink}>View All</Text>
-            </TouchableOpacity>
-          </LinearGradient>
-        </View>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.horizontalList}>
-          {dietFoods.map(item => (
-            <TouchableOpacity key={item.id} style={[styles.miniCard, themed.card]} activeOpacity={0.85}
-              onPress={() => router.push({ pathname: '/product-detail', params: { id: item.id } })}>
-              <Image source={{ uri: item.image }} style={styles.miniImage} resizeMode="cover" />
-              <View style={styles.miniBody}>
-                <Text style={styles.miniName} numberOfLines={1}>{item.name}</Text>
-                <View style={styles.miniPriceRow}>
-                  <Text style={styles.miniPrice}>{'\u20B9'}{item.price}</Text>
-                  <AddToCartButton item={item} />
-                </View>
-                {item.tags && item.tags[0] && (
-                  <View style={[styles.miniTag, { backgroundColor: '#E3F2FD' }]}>
-                    <Text style={[styles.miniTagText, { color: '#1565C0' }]}>{item.tags[0]}</Text>
+                  <View style={[styles.miniTag, { backgroundColor: `${activeLifestyle.color}18` }]}>
+                    <Text style={[styles.miniTagText, { color: activeLifestyle.color }]}>{item.tags[0]}</Text>
                   </View>
                 )}
               </View>
             </TouchableOpacity>
           ))}
         </ScrollView>
+        <TouchableOpacity
+          style={styles.viewAllBtn}
+          onPress={() => router.push({ pathname: '/browse', params: { category: activeLifestyle.category } })}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.viewAllBtnText}>View All {activeLifestyle.label}</Text>
+          <Icon name="chevron-right" size={16} color={COLORS.primary} />
+        </TouchableOpacity>
 
-        {/* Sports & Gym Nutrition Section */}
+        {/* ━━━ 7. SEASONAL PICKS ━━━ */}
         <View style={styles.sectionBanner}>
-          <LinearGradient colors={['#EF5350', '#E53935']} style={styles.sectionBannerGrad}>
-            <Icon name="dumbbell" size={28} color="#FFF" />
+          <LinearGradient colors={['#FF7043', '#FF5722']} style={styles.sectionBannerGrad}>
+            <Icon name={currentSeason.icon as any} size={24} color="#FFF" />
             <View style={{ flex: 1, marginLeft: 12 }}>
-              <Text style={styles.sectionBannerTitle}>Sports & Gym Nutrition</Text>
-              <Text style={styles.sectionBannerDesc}>Protein-rich foods for athletes & fitness enthusiasts</Text>
+              <Text style={styles.sectionBannerTitle}>{currentSeason.title}</Text>
+              <Text style={styles.sectionBannerDesc}>{currentSeason.description}</Text>
             </View>
-            <TouchableOpacity onPress={() => router.push({ pathname: '/browse', params: { category: 'Sports Nutrition' } })}>
-              <Text style={styles.sectionBannerLink}>View All</Text>
-            </TouchableOpacity>
           </LinearGradient>
         </View>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.horizontalList}>
-          {sportsFoods.map(item => (
-            <TouchableOpacity key={item.id} style={[styles.miniCard, themed.card]} activeOpacity={0.85}
-              onPress={() => router.push({ pathname: '/product-detail', params: { id: item.id } })}>
-              <Image source={{ uri: item.image }} style={styles.miniImage} resizeMode="cover" />
-              <View style={styles.miniBody}>
-                <Text style={styles.miniName} numberOfLines={1}>{item.name}</Text>
-                <View style={styles.miniPriceRow}>
-                  <Text style={styles.miniPrice}>{'\u20B9'}{item.price}</Text>
-                  <AddToCartButton item={item} />
-                </View>
-                {item.tags && item.tags[0] && (
-                  <View style={[styles.miniTag, { backgroundColor: '#FCE4EC' }]}>
-                    <Text style={[styles.miniTagText, { color: '#C62828' }]}>{item.tags[0]}</Text>
-                  </View>
-                )}
-              </View>
+          {seasonalProducts.map(item => (
+            <ProductMiniCard key={`seasonal_${item.id}`} item={item} themed={themed} />
+          ))}
+        </ScrollView>
+
+        {/* ━━━ 8. FESTIVAL & OCCASION PACKS ━━━ */}
+        <Text style={[styles.sectionTitle, themed.textPrimary]}>Festival & Occasion Packs</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.packsScroll}>
+          {FESTIVAL_PACKS.map(pack => (
+            <TouchableOpacity key={pack.id} style={[styles.packCard, { backgroundColor: pack.color }]}
+              onPress={() => router.push({ pathname: '/dish-pack-detail', params: { id: pack.id } })} activeOpacity={0.85}>
+              <Image source={{ uri: pack.image }} style={styles.packImage} resizeMode="cover" />
+              <Text style={styles.packName}>{pack.name}</Text>
+              <Text style={styles.packPrice}>{'\u20B9'}{pack.price}</Text>
+              {pack.tag ? <View style={styles.packTag}><Text style={styles.packTagText}>{pack.tag}</Text></View> : <View style={{ height: 8 }} />}
             </TouchableOpacity>
           ))}
         </ScrollView>
 
-        <View style={{ height: 30 }} />
+        <View style={{ height: SPACING.xxl }} />
       </ScrollView>
     </SafeAreaView>
   );
 }
 
+/* ─── Styles ─── */
+const SECTION_GAP = SPACING.xl;
+
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: COLORS.background },
+
+  /* Header */
   header: { paddingHorizontal: SPACING.base, paddingTop: SPACING.md, paddingBottom: SPACING.sm },
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   headerTitle: { fontSize: 22, fontWeight: '800', color: COLORS.text.primary },
@@ -422,8 +488,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14, paddingVertical: 10,
     ...SHADOW.sm,
   },
-  scroll: { paddingBottom: 80 },
-  offersSection: { marginTop: SPACING.sm, marginBottom: 4 },
+
+  /* Scroll */
+  scroll: { paddingBottom: 90 },
+
+  /* Offers Carousel */
+  offersSection: { marginTop: SPACING.sm },
   offerCard: {
     flexDirection: 'row', alignItems: 'center', borderRadius: RADIUS.lg,
     padding: SPACING.base, minHeight: 110,
@@ -439,23 +509,45 @@ const styles = StyleSheet.create({
   offerDots: { flexDirection: 'row', justifyContent: 'center', gap: 5, marginTop: 8 },
   offerDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: COLORS.border },
   offerDotActive: { width: 20, backgroundColor: COLORS.primary },
+
+  /* Quick Access Card */
+  quickAccessCard: {
+    marginHorizontal: SPACING.base, marginTop: SPACING.lg,
+    borderRadius: RADIUS.lg, backgroundColor: '#FFF',
+    paddingVertical: SPACING.base, paddingHorizontal: SPACING.sm,
+    ...SHADOW.sm,
+  },
+  quickAccessGrid: {
+    flexDirection: 'row', flexWrap: 'wrap',
+  },
+  quickAccessItem: {
+    width: '25%', alignItems: 'center', paddingVertical: SPACING.sm,
+  },
+  quickAccessIconWrap: {
+    width: 44, height: 44, borderRadius: 22,
+    alignItems: 'center', justifyContent: 'center', marginBottom: 6,
+  },
+  quickAccessLabel: { fontSize: 11, fontWeight: '600', color: COLORS.text.primary, textAlign: 'center' },
+
+  /* Section Title */
   sectionTitle: {
     fontSize: 17, fontWeight: '800', color: COLORS.text.primary,
-    marginHorizontal: SPACING.base, marginTop: SPACING.lg, marginBottom: SPACING.md,
+    marginHorizontal: SPACING.base, marginTop: SECTION_GAP, marginBottom: SPACING.sm,
   },
-  categoryScroll: { paddingHorizontal: SPACING.base, gap: 10, paddingVertical: 4 },
+  sectionHeaderRow: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    marginHorizontal: SPACING.base, marginTop: SECTION_GAP, marginBottom: SPACING.sm,
+  },
+  viewAllLink: { fontSize: 13, fontWeight: '700', color: COLORS.primary },
+
+  /* Categories */
+  categoryScroll: { paddingHorizontal: SPACING.base, gap: 10, paddingVertical: SPACING.xs },
   categoryCard: { width: 100, alignItems: 'center', borderRadius: RADIUS.lg, overflow: 'hidden', ...SHADOW.sm },
   categoryImage: { width: 100, height: 70 },
   categoryLabel: { fontSize: 11, fontWeight: '700', color: COLORS.text.primary, paddingVertical: 8, textAlign: 'center' },
-  packsBanner: { marginHorizontal: SPACING.base, marginTop: SPACING.lg, borderRadius: RADIUS.lg, overflow: 'hidden' },
-  packsGrad: { padding: SPACING.base },
-  packsContent: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  packsTitle: { fontSize: 16, fontWeight: '800', color: '#FFF' },
-  packsDesc: { fontSize: 12, color: 'rgba(255,255,255,0.9)', lineHeight: 17, marginTop: 2 },
-  stepsRow: { flexDirection: 'row', paddingHorizontal: SPACING.base, gap: 8 },
-  stepCard: { flex: 1, alignItems: 'center', paddingVertical: 14, borderRadius: RADIUS.md, gap: 6 },
-  stepLabel: { fontSize: 10, fontWeight: '700', color: COLORS.text.primary, textAlign: 'center' },
-  popularGrid: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: SPACING.base, gap: 10, paddingBottom: 4 },
+
+  /* Popular Grid */
+  popularGrid: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: SPACING.base, gap: 10 },
   productCard: { backgroundColor: '#FFF', borderRadius: RADIUS.lg, ...SHADOW.sm, overflow: 'hidden' },
   productImageWrap: { width: '100%', height: 100, overflow: 'hidden' },
   productImage: { width: '100%', height: '100%' },
@@ -463,28 +555,60 @@ const styles = StyleSheet.create({
   productName: { fontSize: 13, fontWeight: '700', color: COLORS.text.primary },
   productUnit: { fontSize: 11, color: COLORS.text.muted, marginBottom: 4 },
   productPrice: { fontSize: 15, fontWeight: '800', color: COLORS.text.primary },
-  packsScroll: { paddingHorizontal: SPACING.base, gap: 10, paddingVertical: 4 },
+  priceAddRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+
+  /* Dish Packs */
+  packsBanner: { marginHorizontal: SPACING.base, marginTop: SECTION_GAP, borderRadius: RADIUS.lg, overflow: 'hidden' },
+  packsGrad: { padding: SPACING.base },
+  packsContent: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  packsTitle: { fontSize: 16, fontWeight: '800', color: '#FFF' },
+  packsDesc: { fontSize: 12, color: 'rgba(255,255,255,0.9)', lineHeight: 17, marginTop: 2 },
+  packsScroll: { paddingHorizontal: SPACING.base, gap: 10, paddingTop: SPACING.sm, paddingBottom: SPACING.xs },
   packCard: { width: 160, borderRadius: RADIUS.lg, overflow: 'hidden', ...SHADOW.sm },
   packImage: { width: 160, height: 100 },
   packName: { fontSize: 13, fontWeight: '700', color: COLORS.text.primary, textAlign: 'center', paddingHorizontal: 8, marginTop: 8 },
   packPrice: { fontSize: 15, fontWeight: '800', color: COLORS.primary, textAlign: 'center', marginTop: 4 },
   packTag: { backgroundColor: COLORS.primary, borderRadius: RADIUS.sm, paddingHorizontal: 8, paddingVertical: 3, marginTop: 6, alignSelf: 'center', marginBottom: 10 },
   packTagText: { fontSize: 10, fontWeight: '700', color: '#FFF' },
-  sectionBanner: { marginHorizontal: SPACING.base, marginTop: SPACING.xl, borderRadius: RADIUS.lg, overflow: 'hidden' },
+
+  /* Lifestyle Tabs */
+  lifestyleTabsRow: {
+    flexDirection: 'row', paddingHorizontal: SPACING.base, gap: 8, marginBottom: SPACING.xs,
+  },
+  lifestyleTab: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    paddingHorizontal: 14, paddingVertical: 8,
+    borderRadius: RADIUS.full, backgroundColor: '#F5F5F5',
+  },
+  lifestyleTabText: { fontSize: 12, fontWeight: '700', color: COLORS.text.secondary },
+  viewAllBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4,
+    marginHorizontal: SPACING.base, marginTop: SPACING.sm,
+    paddingVertical: 10, borderRadius: RADIUS.lg,
+    borderWidth: 1, borderColor: COLORS.primary, backgroundColor: '#FFF',
+  },
+  viewAllBtnText: { fontSize: 13, fontWeight: '700', color: COLORS.primary },
+
+  /* Section Banner */
+  sectionBanner: { marginHorizontal: SPACING.base, marginTop: SECTION_GAP, borderRadius: RADIUS.lg, overflow: 'hidden' },
   sectionBannerGrad: { flexDirection: 'row', alignItems: 'center', padding: SPACING.base },
   sectionBannerTitle: { fontSize: 15, fontWeight: '800', color: '#FFF' },
   sectionBannerDesc: { fontSize: 11, color: 'rgba(255,255,255,0.85)', marginTop: 2 },
-  sectionBannerLink: { fontSize: 12, fontWeight: '700', color: '#FFF', textDecorationLine: 'underline' },
-  horizontalList: { paddingHorizontal: SPACING.base, gap: 10, paddingTop: SPACING.md, paddingBottom: 4 },
+
+  /* Horizontal List */
+  horizontalList: { paddingHorizontal: SPACING.base, gap: 10, paddingTop: SPACING.sm, paddingBottom: SPACING.xs },
+
+  /* Mini Card */
   miniCard: { width: 140, backgroundColor: '#FFF', borderRadius: RADIUS.lg, overflow: 'hidden', ...SHADOW.sm },
   miniImage: { width: 140, height: 90 },
   miniBody: { padding: 8 },
   miniName: { fontSize: 12, fontWeight: '700', color: COLORS.text.primary },
   miniPrice: { fontSize: 14, fontWeight: '800', color: COLORS.primary, marginTop: 2 },
+  miniPriceRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 2 },
   miniTag: { backgroundColor: '#E8F5E9', borderRadius: 4, paddingHorizontal: 6, paddingVertical: 2, alignSelf: 'flex-start', marginTop: 4 },
   miniTagText: { fontSize: 9, fontWeight: '700', color: COLORS.green },
-  miniPriceRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 2 },
-  priceAddRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+
+  /* Add / Qty Button */
   addBtn: {
     backgroundColor: '#E8F5E9', borderRadius: 6, borderWidth: 1, borderColor: COLORS.primary,
     paddingHorizontal: 10, paddingVertical: 3,
@@ -493,4 +617,5 @@ const styles = StyleSheet.create({
   qtyRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#E8F5E9', borderRadius: 6, borderWidth: 1, borderColor: COLORS.primary },
   qtyBtn: { paddingHorizontal: 6, paddingVertical: 3 },
   qtyText: { fontSize: 12, fontWeight: '800', color: COLORS.primary, minWidth: 18, textAlign: 'center' },
+
 });

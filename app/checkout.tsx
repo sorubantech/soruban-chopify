@@ -9,6 +9,8 @@ import { useThemedStyles } from '@/src/utils/useThemedStyles';
 import { useCart } from '@/context/CartContext';
 import { useOrders } from '@/context/OrderContext';
 import { useWallet } from '@/context/WalletContext';
+import { useDiet } from '@/context/DietContext';
+import { useLoyalty, POINTS_PER_RUPEE } from '@/context/LoyaltyContext';
 import { getCutLabel, getCutFee } from '@/data/cutTypes';
 import deliverySlotsData from '@/data/deliverySlots.json';
 import type { Subscription, PaymentMethod } from '@/types';
@@ -64,6 +66,17 @@ export default function CheckoutScreen() {
   const [subMonthlyDates, setSubMonthlyDates] = useState<number[]>([1]);
   const [subStartDate, setSubStartDate] = useState(SCHEDULE_DATES[1].key);
   const [subTimeSlot, setSubTimeSlot] = useState(TIME_SLOTS[0].id);
+
+  const { familyMembers } = useDiet();
+  const { earnPoints } = useLoyalty();
+  const [deliveryTip, setDeliveryTip] = useState(0);
+  const [contactlessDelivery, setContactlessDelivery] = useState(false);
+  const [isGiftOrder, setIsGiftOrder] = useState(false);
+  const [giftRecipient, setGiftRecipient] = useState('');
+  const [giftMessage, setGiftMessage] = useState('');
+  const [giftPhone, setGiftPhone] = useState('');
+
+  const TIP_OPTIONS = [0, 10, 20, 30, 50];
 
   const subtotal = getSubtotal();
   const cuttingTotal = getCuttingTotal();
@@ -132,13 +145,14 @@ export default function CheckoutScreen() {
         walletAmountUsed: walletDeduction > 0 ? walletDeduction : undefined,
       });
       clearCart();
+      await earnPoints(Math.floor(total * POINTS_PER_RUPEE), `Order #${order.id}`, order.id);
       const walletMsg = walletDeduction > 0 ? ` ₹${walletDeduction} paid from wallet.` : '';
       const remainMsg = remainingToPay > 0 && walletDeduction > 0 ? ` ₹${remainingToPay} via ${payment === 'upi' ? 'UPI' : 'Cash on Delivery'}.` : '';
       const msg = orderType === 'subscribe'
         ? `Order #${order.id} placed with ${subFrequency} subscription!${walletMsg}${remainMsg} Your first delivery starts ${SCHEDULE_DATES.find(d => d.key === subStartDate)?.label || 'soon'}.`
         : `Order #${order.id} has been placed successfully.${walletMsg}${remainMsg} Your fresh-cut items will be ready soon!`;
       Alert.alert(orderType === 'subscribe' ? 'Subscribed!' : 'Order Placed!', msg,
-        [{ text: 'View Order', onPress: () => router.replace({ pathname: '/order-detail', params: { id: order.id } }) }]);
+        [{ text: 'View Order', onPress: () => router.replace({ pathname: '/order-confirmation', params: { orderId: order.id, total: String(total) } } as any) }]);
     } catch { Alert.alert('Error', 'Failed to place order. Please try again.'); }
     finally { setPlacing(false); }
   };
@@ -404,6 +418,7 @@ export default function CheckoutScreen() {
               <Text style={[styles.billValue, { color: COLORS.green }]}>-{'\u20B9'}{walletDeduction}</Text>
             </View>
           )}
+          {deliveryTip > 0 && <View style={styles.billRow}><Text style={styles.billLabel}>Delivery Tip</Text><Text style={styles.billValue}>₹{deliveryTip}</Text></View>}
           <View style={[styles.billRow, styles.billTotal]}>
             <Text style={styles.billTotalLabel}>{walletDeduction > 0 && remainingToPay > 0 ? 'Remaining to Pay' : 'Total'}</Text>
             <Text style={styles.billTotalValue}>{'\u20B9'}{walletDeduction > 0 ? remainingToPay : total}</Text>
@@ -474,6 +489,42 @@ export default function CheckoutScreen() {
             </>
           )}
         </View>
+
+        {/* Delivery Tip */}
+        <View style={[styles.tipSection, themed.card]}>
+          <Text style={[styles.tipTitle, themed.textPrimary]}>Tip your delivery partner</Text>
+          <Text style={styles.tipDesc}>100% of tip goes to your delivery partner</Text>
+          <View style={styles.tipRow}>
+            {TIP_OPTIONS.map(t => (
+              <TouchableOpacity key={t} style={[styles.tipChip, deliveryTip === t && styles.tipChipActive]} onPress={() => setDeliveryTip(t)}>
+                <Text style={[styles.tipChipText, deliveryTip === t && styles.tipChipTextActive]}>{t === 0 ? 'No tip' : `₹${t}`}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
+        <TouchableOpacity style={[styles.contactlessRow, themed.card]} onPress={() => setContactlessDelivery(!contactlessDelivery)}>
+          <Icon name="hand-wave" size={20} color={contactlessDelivery ? COLORS.green : COLORS.text.muted} />
+          <View style={{ flex: 1, marginLeft: 10 }}>
+            <Text style={[styles.contactlessTitle, themed.textPrimary]}>Contactless Delivery</Text>
+            <Text style={styles.contactlessDesc}>Leave at doorstep</Text>
+          </View>
+          <Icon name={contactlessDelivery ? 'checkbox-marked' : 'checkbox-blank-outline'} size={24} color={contactlessDelivery ? COLORS.green : COLORS.text.muted} />
+        </TouchableOpacity>
+
+        <TouchableOpacity style={[styles.giftToggleRow, themed.card]} onPress={() => setIsGiftOrder(!isGiftOrder)}>
+          <Icon name="gift-outline" size={20} color={isGiftOrder ? '#E91E63' : COLORS.text.muted} />
+          <Text style={[styles.giftToggleText, themed.textPrimary]}>Send as Gift</Text>
+          <Icon name={isGiftOrder ? 'checkbox-marked' : 'checkbox-blank-outline'} size={24} color={isGiftOrder ? '#E91E63' : COLORS.text.muted} />
+        </TouchableOpacity>
+        {isGiftOrder && (
+          <View style={[styles.giftForm, themed.card]}>
+            <TextInput style={[styles.giftInput, themed.inputBg]} placeholder="Recipient Name" value={giftRecipient} onChangeText={setGiftRecipient} placeholderTextColor={COLORS.text.muted} />
+            <TextInput style={[styles.giftInput, themed.inputBg]} placeholder="Recipient Phone" value={giftPhone} onChangeText={setGiftPhone} keyboardType="phone-pad" placeholderTextColor={COLORS.text.muted} />
+            <TextInput style={[styles.giftInput, themed.inputBg]} placeholder="Gift Message (optional)" value={giftMessage} onChangeText={setGiftMessage} placeholderTextColor={COLORS.text.muted} />
+          </View>
+        )}
+
         <View style={{ height: 20 }} />
       </ScrollView>
 
@@ -587,4 +638,19 @@ const styles = StyleSheet.create({
   walletCheckbox: { width: 22, height: 22, borderRadius: 4, borderWidth: 1.5, borderColor: COLORS.border, justifyContent: 'center', alignItems: 'center' },
   walletCheckboxActive: { backgroundColor: COLORS.green, borderColor: COLORS.green },
   remainingLabel: { fontSize: 12, fontWeight: '700', color: COLORS.text.primary, marginBottom: 6, marginTop: 4 },
+  tipSection: { marginHorizontal: SPACING.base, marginTop: SPACING.md, backgroundColor: '#FFF', borderRadius: RADIUS.lg, padding: SPACING.base, ...SHADOW.sm },
+  tipTitle: { fontSize: 14, fontWeight: '700', color: COLORS.text.primary },
+  tipDesc: { fontSize: 11, color: COLORS.text.muted, marginTop: 2, marginBottom: SPACING.sm },
+  tipRow: { flexDirection: 'row', gap: 6 },
+  tipChip: { flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: RADIUS.md, borderWidth: 1, borderColor: COLORS.border },
+  tipChipActive: { borderColor: COLORS.green, backgroundColor: '#E8F5E9' },
+  tipChipText: { fontSize: 11, fontWeight: '700', color: COLORS.text.secondary },
+  tipChipTextActive: { color: COLORS.green },
+  contactlessRow: { flexDirection: 'row', alignItems: 'center', marginHorizontal: SPACING.base, marginTop: SPACING.sm, backgroundColor: '#FFF', borderRadius: RADIUS.lg, padding: SPACING.base, ...SHADOW.sm },
+  contactlessTitle: { fontSize: 13, fontWeight: '700', color: COLORS.text.primary },
+  contactlessDesc: { fontSize: 11, color: COLORS.text.muted },
+  giftToggleRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginHorizontal: SPACING.base, marginTop: SPACING.sm, backgroundColor: '#FFF', borderRadius: RADIUS.lg, padding: SPACING.base, ...SHADOW.sm },
+  giftToggleText: { flex: 1, fontSize: 13, fontWeight: '700', color: COLORS.text.primary },
+  giftForm: { marginHorizontal: SPACING.base, marginTop: SPACING.xs, backgroundColor: '#FFF', borderRadius: RADIUS.lg, padding: SPACING.base, gap: SPACING.sm, ...SHADOW.sm },
+  giftInput: { borderWidth: 1, borderColor: COLORS.border, borderRadius: RADIUS.md, paddingHorizontal: 12, paddingVertical: 8, fontSize: 13 },
 });

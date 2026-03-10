@@ -57,6 +57,13 @@ export type OrderType = 'delivery' | 'pickup';
 
 export type SubFrequency = 'daily' | 'weekly' | 'monthly';
 
+export interface SkippedDelivery {
+  date: string;              // ISO date string e.g. '2026-03-12'
+  reason?: string;           // optional reason from user
+  skippedAt: string;         // ISO timestamp when skip was requested
+  status: 'skipped' | 'too_late';  // too_late = tried after cutoff
+}
+
 export interface Subscription {
   frequency: SubFrequency;
   preferredTime: string;
@@ -64,6 +71,21 @@ export interface Subscription {
   weeklyDay?: string;        // e.g. 'Mon', 'Tue' — for weekly
   monthlyDates?: number[];   // e.g. [1, 15] — for monthly
   status: 'active' | 'paused' | 'cancelled';
+  skippedDeliveries?: SkippedDelivery[];
+  cutoffHours: number;       // hours before delivery to allow skip (default 10 = 10 PM previous day)
+}
+
+export type PaymentMethod = 'cod' | 'upi' | 'wallet' | 'wallet_partial';
+
+export interface WalletTransaction {
+  id: string;
+  type: 'credit' | 'debit';
+  title: string;
+  description: string;
+  amount: number;
+  date: string;           // ISO timestamp
+  orderId?: string;       // linked order if applicable
+  category: 'refund' | 'payment' | 'cashback' | 'bonus' | 'topup';
 }
 
 export interface Order {
@@ -85,6 +107,12 @@ export interface Order {
   timeline?: OrderTimeline[];
   specialNote?: string;
   subscription?: Subscription;
+  paymentMethod?: PaymentMethod;
+  walletAmountUsed?: number;
+  cancelledAt?: string;
+  cancelReason?: string;
+  refundAmount?: number;
+  refundedToWallet?: boolean;
 }
 
 export interface OrderItem {

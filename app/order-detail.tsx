@@ -1,5 +1,5 @@
-import React, { useMemo, useState, useRef } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, StatusBar, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
+import React, { useMemo, useState, useRef, useCallback } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, StatusBar, TextInput, KeyboardAvoidingView, Platform, Alert } from 'react-native';
 import Icon from '@expo/vector-icons/MaterialCommunityIcons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -8,6 +8,7 @@ import { COLORS, SPACING, RADIUS, SHADOW } from '@/src/utils/theme';
 import { useThemedStyles } from '@/src/utils/useThemedStyles';
 import { useOrders } from '@/context/OrderContext';
 import { useCart } from '@/context/CartContext';
+import { useWallet } from '@/context/WalletContext';
 import { getCutLabel } from '@/data/cutTypes';
 import type { Product } from '@/types';
 
@@ -22,9 +23,11 @@ export default function OrderDetailScreen() {
   const router = useRouter();
   const themed = useThemedStyles();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { orders } = useOrders();
+  const { orders, cancelOrder, canCancelOrder } = useOrders();
   const { addToCart } = useCart();
+  const { refundToWallet } = useWallet();
   const order = useMemo(() => orders.find(o => o.id === id), [orders, id]);
+  const cancelCheck = useMemo(() => id ? canCancelOrder(id) : { canCancel: false, reason: '' }, [id, canCancelOrder]);
 
   const scrollRef = useRef<ScrollView>(null);
 
@@ -60,6 +63,34 @@ export default function OrderDetailScreen() {
     });
     router.push('/(tabs)/cart');
   };
+
+  const handleCancelOrder = useCallback(() => {
+    if (!order) return;
+    const paidOnline = order.paymentMethod && order.paymentMethod !== 'cod';
+    const refundMsg = paidOnline ? `\n\n₹${order.total} will be refunded to your wallet.` : '';
+    Alert.alert(
+      'Cancel Order',
+      `Are you sure you want to cancel order #${order.id}?${refundMsg}`,
+      [
+        { text: 'Keep Order', style: 'cancel' },
+        {
+          text: 'Cancel Order',
+          style: 'destructive',
+          onPress: async () => {
+            const result = await cancelOrder(order.id, 'Cancelled by user');
+            if (result.success) {
+              if (result.refundAmount && result.refundAmount > 0) {
+                await refundToWallet(result.refundAmount, order.id, `Refund for cancelled order #${order.id}`);
+              }
+              Alert.alert('Order Cancelled', result.message);
+            } else {
+              Alert.alert('Cannot Cancel', result.message);
+            }
+          },
+        },
+      ],
+    );
+  }, [order, cancelOrder, refundToWallet]);
 
   if (!order) return <SafeAreaView style={styles.safe}><Text style={{ textAlign: 'center', marginTop: 60 }}>Order not found</Text></SafeAreaView>;
 
@@ -116,6 +147,21 @@ export default function OrderDetailScreen() {
                 <View style={styles.subInfoRow}><Icon name="calendar-today" size={14} color={COLORS.text.muted} /><Text style={styles.subInfoText}>Every day</Text></View>
               )}
               <View style={styles.subInfoRow}><Icon name="clock-outline" size={14} color={COLORS.text.muted} /><Text style={styles.subInfoText}>{order.subscription.preferredTime}</Text></View>
+              {(order.subscription.skippedDeliveries || []).filter(s => s.status === 'skipped').length > 0 && (
+                <View style={styles.subInfoRow}>
+                  <Icon name="calendar-remove" size={14} color={COLORS.status.error} />
+                  <Text style={[styles.subInfoText, { color: COLORS.status.error }]}>
+                    {(order.subscription.skippedDeliveries || []).filter(s => s.status === 'skipped').length} delivery(s) skipped
+                  </Text>
+                </View>
+              )}
+              <TouchableOpacity
+                style={styles.subManageBtn}
+                onPress={() => router.push({ pathname: '/subscription-manage' as any, params: { id: order.id } })}
+              >
+                <Icon name="cog-outline" size={16} color={COLORS.primary} />
+                <Text style={styles.subManageBtnText}>Manage Subscription</Text>
+              </TouchableOpacity>
             </View>
           </View>
         )}
@@ -175,6 +221,42 @@ export default function OrderDetailScreen() {
           <View style={styles.billRow}><Text style={styles.billLabel}>Delivery Fee</Text><Text style={styles.billValue}>{'\u20B9'}{order.deliveryFee}</Text></View>
           <View style={[styles.billRow, styles.billTotal]}><Text style={styles.billTotalLabel}>Total Paid</Text><Text style={styles.billTotalValue}>{'\u20B9'}{order.total}</Text></View>
         </View>
+        {/* Cancel Order */}
+        {cancelCheck.canCancel && (
+          <TouchableOpacity style={styles.cancelOrderBtn} onPress={handleCancelOrder}>
+            <Icon name="close-circle-outline" size={20} color={COLORS.status.error} />
+            <Text style={styles.cancelOrderBtnText}>Cancel Order</Text>
+          </TouchableOpacity>
+        )}
+        {!cancelCheck.canCancel && order.status !== 'cancelled' && order.status !== 'delivered' && (
+          <View style={styles.cancelInfoBanner}>
+            <Icon name="information-outline" size={16} color="#F57C00" />
+            <Text style={styles.cancelInfoText}>{cancelCheck.reason}</Text>
+          </View>
+        )}
+
+        {/* Cancelled + Refund Info */}
+        {order.status === 'cancelled' && (
+          <View style={styles.cancelledCard}>
+            <View style={styles.cancelledHeader}>
+              <Icon name="close-circle" size={20} color={COLORS.status.error} />
+              <Text style={styles.cancelledTitle}>Order Cancelled</Text>
+            </View>
+            {order.cancelReason && <Text style={styles.cancelledReason}>{order.cancelReason}</Text>}
+            {order.cancelledAt && (
+              <Text style={styles.cancelledTime}>
+                Cancelled on {new Date(order.cancelledAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })} at {new Date(order.cancelledAt).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' })}
+              </Text>
+            )}
+            {order.refundedToWallet && order.refundAmount && (
+              <View style={styles.refundBadge}>
+                <Icon name="wallet-outline" size={16} color={COLORS.green} />
+                <Text style={styles.refundBadgeText}>{'\u20B9'}{order.refundAmount} refunded to wallet</Text>
+              </View>
+            )}
+          </View>
+        )}
+
         {/* Reorder */}
         <TouchableOpacity style={styles.reorderBtn} onPress={handleReorder}>
           <Icon name="cart-plus" size={20} color="#FFF" />
@@ -297,4 +379,18 @@ const styles = StyleSheet.create({
   subInfoBody: { backgroundColor: '#FFF', padding: SPACING.base, gap: 8 },
   subInfoRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   subInfoText: { fontSize: 12, color: COLORS.text.secondary },
+  subManageBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: SPACING.sm, paddingVertical: 10, borderRadius: RADIUS.full, borderWidth: 1.5, borderColor: COLORS.primary, backgroundColor: '#E8F5E9' },
+  subManageBtnText: { fontSize: 13, fontWeight: '700', color: COLORS.primary },
+  // Cancel Order
+  cancelOrderBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 14, borderRadius: RADIUS.full, borderWidth: 1.5, borderColor: COLORS.status.error, marginBottom: SPACING.md },
+  cancelOrderBtnText: { fontSize: 15, fontWeight: '700', color: COLORS.status.error },
+  cancelInfoBanner: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#FFF8E1', borderRadius: RADIUS.lg, padding: SPACING.md, marginBottom: SPACING.md },
+  cancelInfoText: { flex: 1, fontSize: 12, color: '#F57C00', lineHeight: 17 },
+  cancelledCard: { backgroundColor: '#FFEBEE', borderRadius: RADIUS.lg, padding: SPACING.base, marginBottom: SPACING.md },
+  cancelledHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 },
+  cancelledTitle: { fontSize: 15, fontWeight: '800', color: COLORS.status.error },
+  cancelledReason: { fontSize: 12, color: COLORS.text.secondary, marginBottom: 4 },
+  cancelledTime: { fontSize: 11, color: COLORS.text.muted, marginBottom: 6 },
+  refundBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#E8F5E9', borderRadius: RADIUS.md, paddingHorizontal: 10, paddingVertical: 6, alignSelf: 'flex-start' },
+  refundBadgeText: { fontSize: 12, fontWeight: '700', color: COLORS.green },
 });

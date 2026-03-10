@@ -391,7 +391,7 @@ const styles = StyleSheet.create({
   qtyBtn: { width: 26, height: 26, borderRadius: 13, borderWidth: 1.5, borderColor: COLORS.primary, justifyContent: 'center', alignItems: 'center' },
   qtyText: { fontSize: 13, fontWeight: '700', color: COLORS.text.primary, minWidth: 18, textAlign: 'center' },
   // Extras
-  extrasRow: { paddingRight: SPACING.base, gap: 8 },
+  extrasRow: { paddingLeft: SPACING.xs, paddingRight: SPACING.base, paddingVertical: SPACING.sm, gap: 8 },
   extraCard: { width: 90, backgroundColor: '#FFF', borderRadius: RADIUS.md, overflow: 'hidden', ...SHADOW.sm },
   extraImgWrap: { width: 90, height: 60, overflow: 'hidden' },
   extraImg: { width: '100%', height: '100%' },

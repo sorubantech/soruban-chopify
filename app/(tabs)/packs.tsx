@@ -1,5 +1,5 @@
-import React, { useState, useMemo } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image, StatusBar } from 'react-native';
+import React, { useState, useMemo, useRef } from 'react';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image, StatusBar, Animated } from 'react-native';
 import Icon from '@expo/vector-icons/MaterialCommunityIcons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
@@ -18,6 +18,26 @@ export default function PacksScreen() {
   const { handleScroll } = useScrollContext();
   const [filter, setFilter] = useState<FilterType>('all');
   const themed = useThemedStyles();
+  const scrollY = useRef(new Animated.Value(0)).current;
+
+  const heroBannerHeight = scrollY.interpolate({
+    inputRange: [0, 80],
+    outputRange: [1, 0],
+    extrapolate: 'clamp',
+  });
+  const heroBannerOpacity = scrollY.interpolate({
+    inputRange: [0, 60],
+    outputRange: [1, 0],
+    extrapolate: 'clamp',
+  });
+
+  const onScroll = Animated.event(
+    [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+    {
+      useNativeDriver: false,
+      listener: (event: any) => handleScroll(event),
+    },
+  );
 
   const packs = useMemo(() => {
     if (filter === 'all') return DISH_PACKS;
@@ -81,12 +101,12 @@ export default function PacksScreen() {
         <Text style={styles.headerSub}>Pre-cut veggie packs for your favorite dishes</Text>
       </LinearGradient>
 
-      <View style={styles.heroBanner}>
+      <Animated.View style={[styles.heroBanner, { transform: [{ scaleY: heroBannerHeight }], opacity: heroBannerOpacity, maxHeight: heroBannerHeight.interpolate({ inputRange: [0, 1], outputRange: [0, 200] }) }]}>
         <LinearGradient colors={COLORS.gradient.green} style={styles.heroGrad}>
           <Text style={styles.heroTitle}>Cook Smarter, Order Faster!</Text>
           <Text style={styles.heroDesc}>Pick a dish, choose pack size, select cut style for each vegetable. We cut & deliver!</Text>
         </LinearGradient>
-      </View>
+      </Animated.View>
 
       <View style={styles.filterRow}>
         {([
@@ -100,7 +120,7 @@ export default function PacksScreen() {
         ))}
       </View>
 
-      <FlatList data={packs} keyExtractor={i => i.id} renderItem={renderPack} contentContainerStyle={styles.list} showsVerticalScrollIndicator={false} onScroll={handleScroll} scrollEventThrottle={16} />
+      <FlatList data={packs} keyExtractor={i => i.id} renderItem={renderPack} contentContainerStyle={styles.list} showsVerticalScrollIndicator={false} onScroll={onScroll} scrollEventThrottle={16} />
     </SafeAreaView>
   );
 }
@@ -110,7 +130,7 @@ const styles = StyleSheet.create({
   header: { paddingHorizontal: SPACING.base, paddingVertical: SPACING.md },
   headerTitle: { fontSize: 20, fontWeight: '800', color: COLORS.text.primary },
   headerSub: { fontSize: 12, color: COLORS.text.secondary, marginTop: 2 },
-  heroBanner: { marginHorizontal: SPACING.base, marginTop: SPACING.sm, borderRadius: RADIUS.lg, overflow: 'hidden' },
+  heroBanner: { marginHorizontal: SPACING.base, marginTop: SPACING.sm, marginBottom: SPACING.sm, borderRadius: RADIUS.lg, overflow: 'hidden' },
   heroGrad: { padding: SPACING.base },
   heroTitle: { fontSize: 17, fontWeight: '800', color: '#FFF', marginBottom: 4 },
   heroDesc: { fontSize: 12, color: 'rgba(255,255,255,0.9)', lineHeight: 17 },

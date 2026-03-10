@@ -8,9 +8,10 @@ import { COLORS, SPACING, RADIUS, SHADOW } from '@/src/utils/theme';
 import { useThemedStyles } from '@/src/utils/useThemedStyles';
 import { useCart } from '@/context/CartContext';
 import { useOrders } from '@/context/OrderContext';
+import { useWallet } from '@/context/WalletContext';
 import { getCutLabel, getCutFee } from '@/data/cutTypes';
 import deliverySlotsData from '@/data/deliverySlots.json';
-import type { Subscription } from '@/types';
+import type { Subscription, PaymentMethod } from '@/types';
 
 const WEEK_DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const MONTHLY_DATE_OPTIONS = [1, 5, 10, 15, 20, 25];
@@ -46,6 +47,7 @@ export default function CheckoutScreen() {
   const themed = useThemedStyles();
   const { cartItems, getSubtotal, getCuttingTotal, clearCart } = useCart();
   const { createOrder } = useOrders();
+  const { balance: walletBalance, deductFunds } = useWallet();
 
   const [deliveryMode, setDeliveryMode] = useState<'now' | 'scheduled'>('now');
   const [selectedSlot, setSelectedSlot] = useState(deliverySlotsData[0].id);
@@ -53,7 +55,8 @@ export default function CheckoutScreen() {
   const [scheduleTime, setScheduleTime] = useState(TIME_SLOTS[0].id);
   const [address, setAddress] = useState('42, Anna Nagar, Coimbatore');
   const [orderNote, setOrderNote] = useState('');
-  const [payment, setPayment] = useState<'cod' | 'upi'>('cod');
+  const [payment, setPayment] = useState<'cod' | 'upi' | 'wallet'>('cod');
+  const [useWalletBalance, setUseWalletBalance] = useState(false);
   const [placing, setPlacing] = useState(false);
   const [orderType, setOrderType] = useState<'once' | 'subscribe'>('once');
   const [subFrequency, setSubFrequency] = useState<'daily' | 'weekly' | 'monthly'>('daily');
@@ -67,6 +70,12 @@ export default function CheckoutScreen() {
   const deliveryFee = 25;
   const effectiveDeliveryFee = orderType === 'subscribe' ? deliveryFee - Math.round(deliveryFee * (subFrequency === 'daily' ? 0.10 : subFrequency === 'weekly' ? 0.15 : 0.20)) : deliveryFee;
   const total = subtotal + effectiveDeliveryFee;
+
+  // Wallet calculations
+  const walletApplicable = payment === 'wallet' || useWalletBalance;
+  const walletDeduction = walletApplicable ? Math.min(walletBalance, total) : 0;
+  const remainingToPay = total - walletDeduction;
+  const walletCoversAll = walletDeduction >= total;
 
   const SUBSCRIPTION_OPTIONS: { key: 'daily' | 'weekly' | 'monthly'; label: string; icon: string; desc: string; savings: string }[] = [
     { key: 'daily', label: 'Daily', icon: 'calendar-today', desc: 'Fresh delivery every day', savings: 'Save 10% on delivery' },
@@ -89,6 +98,22 @@ export default function CheckoutScreen() {
     if (cartItems.length === 0) return;
     setPlacing(true);
     try {
+      // Deduct wallet if applicable
+      if (walletDeduction > 0) {
+        const success = await deductFunds(walletDeduction, 'Order Payment', `Wallet payment for order`, undefined);
+        if (!success) {
+          Alert.alert('Wallet Error', 'Insufficient wallet balance. Please try again.');
+          setPlacing(false);
+          return;
+        }
+      }
+
+      // Determine payment method
+      let paymentMethod: PaymentMethod = payment === 'wallet' ? 'wallet' : payment;
+      if (useWalletBalance && payment !== 'wallet') {
+        paymentMethod = walletCoversAll ? 'wallet' : 'wallet_partial';
+      }
+
       const subscriptionData: Subscription | undefined = orderType === 'subscribe' ? {
         frequency: subFrequency,
         preferredTime: TIME_SLOTS.find(t => t.id === subTimeSlot)?.label || '',
@@ -96,16 +121,22 @@ export default function CheckoutScreen() {
         weeklyDay: subFrequency === 'weekly' ? subWeeklyDay : undefined,
         monthlyDates: subFrequency === 'monthly' ? subMonthlyDates : undefined,
         status: 'active',
+        skippedDeliveries: [],
+        cutoffHours: 10,
       } : undefined;
       const order = await createOrder({
         items: cartItems, subtotal, cuttingCharges: cuttingTotal, deliveryFee: effectiveDeliveryFee, discount: 0,
         deliverySlot: deliveryLabel, deliveryAddress: address, specialNote: orderNote || undefined,
         subscription: subscriptionData,
+        paymentMethod,
+        walletAmountUsed: walletDeduction > 0 ? walletDeduction : undefined,
       });
       clearCart();
+      const walletMsg = walletDeduction > 0 ? ` ₹${walletDeduction} paid from wallet.` : '';
+      const remainMsg = remainingToPay > 0 && walletDeduction > 0 ? ` ₹${remainingToPay} via ${payment === 'upi' ? 'UPI' : 'Cash on Delivery'}.` : '';
       const msg = orderType === 'subscribe'
-        ? `Order #${order.id} placed with ${subFrequency} subscription! Your first delivery starts ${SCHEDULE_DATES.find(d => d.key === subStartDate)?.label || 'soon'}.`
-        : `Order #${order.id} has been placed successfully. Your fresh-cut items will be ready soon!`;
+        ? `Order #${order.id} placed with ${subFrequency} subscription!${walletMsg}${remainMsg} Your first delivery starts ${SCHEDULE_DATES.find(d => d.key === subStartDate)?.label || 'soon'}.`
+        : `Order #${order.id} has been placed successfully.${walletMsg}${remainMsg} Your fresh-cut items will be ready soon!`;
       Alert.alert(orderType === 'subscribe' ? 'Subscribed!' : 'Order Placed!', msg,
         [{ text: 'View Order', onPress: () => router.replace({ pathname: '/order-detail', params: { id: order.id } }) }]);
     } catch { Alert.alert('Error', 'Failed to place order. Please try again.'); }
@@ -367,19 +398,81 @@ export default function CheckoutScreen() {
           {orderType === 'subscribe' && (
             <View style={styles.billRow}><Text style={[styles.billLabel, { color: '#F57C00' }]}>Subscription Savings</Text><Text style={[styles.billValue, { color: '#F57C00' }]}>-{'\u20B9'}{deliveryFee - effectiveDeliveryFee}</Text></View>
           )}
-          <View style={[styles.billRow, styles.billTotal]}><Text style={styles.billTotalLabel}>Total</Text><Text style={styles.billTotalValue}>{'\u20B9'}{total}</Text></View>
+          {walletDeduction > 0 && (
+            <View style={styles.billRow}>
+              <Text style={[styles.billLabel, { color: COLORS.green }]}>Wallet Payment</Text>
+              <Text style={[styles.billValue, { color: COLORS.green }]}>-{'\u20B9'}{walletDeduction}</Text>
+            </View>
+          )}
+          <View style={[styles.billRow, styles.billTotal]}>
+            <Text style={styles.billTotalLabel}>{walletDeduction > 0 && remainingToPay > 0 ? 'Remaining to Pay' : 'Total'}</Text>
+            <Text style={styles.billTotalValue}>{'\u20B9'}{walletDeduction > 0 ? remainingToPay : total}</Text>
+          </View>
         </View>
 
         {/* Payment */}
         <View style={[styles.sectionCard, themed.card]}>
           <View style={styles.sectionHeader}><Icon name="credit-card" size={20} color={COLORS.primary} /><Text style={[styles.sectionTitle, themed.textPrimary]}>Payment</Text></View>
-          {([{ key: 'cod' as const, label: 'Cash on Delivery', icon: 'cash' }, { key: 'upi' as const, label: 'UPI Payment', icon: 'cellphone' }]).map(p => (
-            <TouchableOpacity key={p.key} style={[styles.paymentRow, payment === p.key && styles.paymentRowActive]} onPress={() => setPayment(p.key)}>
-              <Icon name={p.icon as any} size={20} color={payment === p.key ? COLORS.primary : COLORS.text.muted} />
-              <Text style={[styles.paymentLabel, payment === p.key && styles.paymentLabelActive]}>{p.label}</Text>
-              {payment === p.key && <Icon name="check-circle" size={20} color={COLORS.primary} />}
+
+          {/* Wallet Balance Banner */}
+          {walletBalance > 0 && (
+            <TouchableOpacity
+              style={[styles.walletBanner, useWalletBalance && styles.walletBannerActive]}
+              onPress={() => {
+                if (payment === 'wallet') {
+                  setPayment('cod');
+                  setUseWalletBalance(false);
+                } else {
+                  setUseWalletBalance(!useWalletBalance);
+                }
+              }}
+            >
+              <Icon name="wallet" size={20} color={useWalletBalance ? COLORS.green : COLORS.text.muted} />
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.walletBannerTitle, useWalletBalance && { color: COLORS.green }]}>
+                  Use Wallet Balance
+                </Text>
+                <Text style={styles.walletBannerSub}>
+                  Available: {'\u20B9'}{walletBalance}
+                  {useWalletBalance && walletDeduction > 0 && ` · Using ₹${walletDeduction}`}
+                </Text>
+              </View>
+              <View style={[styles.walletCheckbox, useWalletBalance && styles.walletCheckboxActive]}>
+                {useWalletBalance && <Icon name="check" size={14} color="#FFF" />}
+              </View>
             </TouchableOpacity>
-          ))}
+          )}
+
+          {/* Full wallet payment option */}
+          {walletBalance >= total && (
+            <TouchableOpacity
+              style={[styles.paymentRow, payment === 'wallet' && styles.paymentRowActive]}
+              onPress={() => { setPayment('wallet'); setUseWalletBalance(true); }}
+            >
+              <Icon name="wallet" size={20} color={payment === 'wallet' ? COLORS.green : COLORS.text.muted} />
+              <Text style={[styles.paymentLabel, payment === 'wallet' && { color: COLORS.green }]}>Pay Full with Wallet ({'\u20B9'}{total})</Text>
+              {payment === 'wallet' && <Icon name="check-circle" size={20} color={COLORS.green} />}
+            </TouchableOpacity>
+          )}
+
+          {/* Remaining payment methods */}
+          {(!walletCoversAll || !useWalletBalance) && (
+            <>
+              {useWalletBalance && remainingToPay > 0 && (
+                <Text style={styles.remainingLabel}>Pay remaining {'\u20B9'}{remainingToPay} via:</Text>
+              )}
+              {([
+                { key: 'cod' as const, label: 'Cash on Delivery', icon: 'cash' },
+                { key: 'upi' as const, label: 'UPI Payment', icon: 'cellphone' },
+              ]).map(p => (
+                <TouchableOpacity key={p.key} style={[styles.paymentRow, payment === p.key && styles.paymentRowActive]} onPress={() => setPayment(p.key)}>
+                  <Icon name={p.icon as any} size={20} color={payment === p.key ? COLORS.primary : COLORS.text.muted} />
+                  <Text style={[styles.paymentLabel, payment === p.key && styles.paymentLabelActive]}>{p.label}</Text>
+                  {payment === p.key && <Icon name="check-circle" size={20} color={COLORS.primary} />}
+                </TouchableOpacity>
+              ))}
+            </>
+          )}
         </View>
         <View style={{ height: 20 }} />
       </ScrollView>
@@ -486,4 +579,12 @@ const styles = StyleSheet.create({
   subSummaryRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 4 },
   subSummaryLabel: { fontSize: 12, color: COLORS.text.muted },
   subSummaryValue: { fontSize: 12, fontWeight: '700', color: COLORS.text.primary },
+  // Wallet
+  walletBanner: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 12, paddingHorizontal: SPACING.sm, borderRadius: RADIUS.md, marginBottom: SPACING.sm, borderWidth: 1.5, borderColor: COLORS.border, backgroundColor: '#FFF' },
+  walletBannerActive: { borderColor: COLORS.green, backgroundColor: '#E8F5E9' },
+  walletBannerTitle: { fontSize: 13, fontWeight: '700', color: COLORS.text.secondary },
+  walletBannerSub: { fontSize: 11, color: COLORS.text.muted, marginTop: 1 },
+  walletCheckbox: { width: 22, height: 22, borderRadius: 4, borderWidth: 1.5, borderColor: COLORS.border, justifyContent: 'center', alignItems: 'center' },
+  walletCheckboxActive: { backgroundColor: COLORS.green, borderColor: COLORS.green },
+  remainingLabel: { fontSize: 12, fontWeight: '700', color: COLORS.text.primary, marginBottom: 6, marginTop: 4 },
 });

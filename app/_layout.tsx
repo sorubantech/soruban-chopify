@@ -8,6 +8,7 @@ import { CartProvider } from '@/context/CartContext';
 import { OrderProvider } from '@/context/OrderContext';
 import { ThemeProvider, useTheme } from '@/context/ThemeContext';
 import { LanguageProvider } from '@/context/LanguageContext';
+import { WalletProvider } from '@/context/WalletContext';
 
 function RootLayoutNav() {
   const { isLoading, isAuthenticated } = useAuth();
@@ -79,6 +80,7 @@ function RootLayoutNav() {
         <Stack.Screen name="search" />
         <Stack.Screen name="edit-profile" />
         <Stack.Screen name="settings" />
+        <Stack.Screen name="subscription-manage" />
       </Stack>
     </NavThemeProvider>
   );
@@ -89,11 +91,13 @@ export default function RootLayout() {
     <ThemeProvider>
       <LanguageProvider>
         <AuthProvider>
-          <CartProvider>
-            <OrderProvider>
-              <RootLayoutNav />
-            </OrderProvider>
-          </CartProvider>
+          <WalletProvider>
+            <CartProvider>
+              <OrderProvider>
+                <RootLayoutNav />
+              </OrderProvider>
+            </CartProvider>
+          </WalletProvider>
         </AuthProvider>
       </LanguageProvider>
     </ThemeProvider>

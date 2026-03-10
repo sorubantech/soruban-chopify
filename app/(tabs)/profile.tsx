@@ -86,11 +86,12 @@ export default function ProfileScreen() {
               const sub = order.subscription!;
               const freqLabel = sub.frequency.charAt(0).toUpperCase() + sub.frequency.slice(1);
               const scheduleDetail = sub.frequency === 'weekly' ? `Every ${sub.weeklyDay}` : sub.frequency === 'monthly' ? `On ${sub.monthlyDates?.join(', ')}` : 'Every day';
+              const skippedCount = (sub.skippedDeliveries || []).filter(s => s.status === 'skipped').length;
               return (
                 <TouchableOpacity
                   key={order.id}
                   style={[styles.subCard, themed.card]}
-                  onPress={() => router.push({ pathname: '/order-detail', params: { id: order.id } })}
+                  onPress={() => router.push({ pathname: '/subscription-manage' as any, params: { id: order.id } })}
                 >
                   <View style={styles.subCardIcon}>
                     <Icon name={sub.frequency === 'daily' ? 'calendar-today' : sub.frequency === 'weekly' ? 'calendar-week' : 'calendar-month'} size={22} color="#FFF" />
@@ -101,9 +102,14 @@ export default function ProfileScreen() {
                       <View style={styles.subActiveBadge}><Text style={styles.subActiveText}>Active</Text></View>
                     </View>
                     <Text style={styles.subCardDetail}>{scheduleDetail} at {sub.preferredTime}</Text>
-                    <Text style={styles.subCardItems}>{order.items.length} items · {'\u20B9'}{order.total}/delivery</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                      <Text style={styles.subCardItems}>{order.items.length} items · {'\u20B9'}{order.total}/delivery</Text>
+                      {skippedCount > 0 && <Text style={styles.subSkippedCount}>{skippedCount} skipped</Text>}
+                    </View>
                   </View>
-                  <Icon name="chevron-right" size={16} color={COLORS.text.muted} />
+                  <View style={styles.manageBtn}>
+                    <Text style={styles.manageBtnText}>Manage</Text>
+                  </View>
                 </TouchableOpacity>
               );
             })}
@@ -216,4 +222,7 @@ const styles = StyleSheet.create({
   subActiveText: { fontSize: 9, fontWeight: '700', color: '#4CAF50' },
   subCardDetail: { fontSize: 11, color: COLORS.text.secondary, marginTop: 2 },
   subCardItems: { fontSize: 11, color: COLORS.text.muted, marginTop: 1 },
+  subSkippedCount: { fontSize: 10, fontWeight: '700', color: COLORS.status.error },
+  manageBtn: { borderWidth: 1.5, borderColor: COLORS.primary, borderRadius: RADIUS.full, paddingHorizontal: 12, paddingVertical: 6 },
+  manageBtnText: { fontSize: 11, fontWeight: '700', color: COLORS.primary },
 });

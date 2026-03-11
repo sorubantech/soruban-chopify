@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, StatusBar, Switch, Alert } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, StatusBar, Switch, Alert, Platform } from 'react-native';
 import Icon from '@expo/vector-icons/MaterialCommunityIcons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
@@ -26,6 +26,18 @@ export default function SettingsScreen() {
   const [promotions, setPromotions] = useState(false);
   const [soundAlerts, setSoundAlerts] = useState(true);
   const [autoApplyOffers, setAutoApplyOffers] = useState(true);
+  const [appVersion, setAppVersion] = useState('1.0.0');
+  const [buildNumber, setBuildNumber] = useState('2026.03.1');
+
+  useEffect(() => {
+    try {
+      const Constants = require('expo-constants').default;
+      const ver = Constants.expoConfig?.version || Constants.manifest?.version || '1.0.0';
+      const build = Constants.expoConfig?.ios?.buildNumber || Constants.expoConfig?.android?.versionCode?.toString() || '2026.03.1';
+      setAppVersion(ver);
+      setBuildNumber(build);
+    } catch {}
+  }, []);
 
   const handleClearCache = () => {
     Alert.alert('Clear Cache', 'This will clear cached images and temporary data. Your orders and profile are safe.', [
@@ -165,12 +177,17 @@ export default function SettingsScreen() {
           </View>
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Version</Text>
-            <Text style={styles.infoValue}>1.0.0</Text>
+            <Text style={styles.infoValue}>{appVersion}</Text>
           </View>
           <View style={styles.divider} />
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Build</Text>
-            <Text style={styles.infoValue}>2026.03.1</Text>
+            <Text style={styles.infoValue}>{buildNumber}</Text>
+          </View>
+          <View style={styles.divider} />
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>Platform</Text>
+            <Text style={styles.infoValue}>{Platform.OS === 'ios' ? 'iOS' : Platform.OS === 'android' ? 'Android' : 'Web'}</Text>
           </View>
         </View>
         <View style={{ height: 30 }} />

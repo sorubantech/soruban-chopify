@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image, StatusBar } from 'react-native';
+import React, { useState, useCallback } from 'react';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image, StatusBar, RefreshControl } from 'react-native';
 import Icon from '@expo/vector-icons/MaterialCommunityIcons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
@@ -14,6 +14,11 @@ const favorites = productsData.filter(p => FAVORITE_IDS.includes(p.id));
 export default function FavoritesScreen() {
   const router = useRouter();
   const themed = useThemedStyles();
+  const [refreshing, setRefreshing] = useState(false);
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    setTimeout(() => setRefreshing(false), 1000);
+  }, []);
 
   const renderItem = ({ item }: { item: typeof productsData[0] }) => (
     <TouchableOpacity
@@ -56,6 +61,7 @@ export default function FavoritesScreen() {
         renderItem={renderItem}
         contentContainerStyle={styles.list}
         showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[COLORS.primary]} tintColor={COLORS.primary} />}
         ListEmptyComponent={
           <View style={styles.empty}>
             <Icon name="heart-off-outline" size={48} color={COLORS.text.muted} />

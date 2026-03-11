@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, StatusBar } from 'react-native';
+import React, { useState, useCallback } from 'react';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, StatusBar, RefreshControl } from 'react-native';
 import Icon from '@expo/vector-icons/MaterialCommunityIcons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
@@ -29,6 +29,11 @@ export default function OrdersScreen() {
   const { addToCart } = useCart();
   const { handleScroll } = useScrollContext();
   const themed = useThemedStyles();
+  const [refreshing, setRefreshing] = useState(false);
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    setTimeout(() => setRefreshing(false), 1000);
+  }, []);
 
   const handleReorder = (order: typeof orders[0]) => {
     order.items.forEach(item => {
@@ -113,7 +118,7 @@ export default function OrdersScreen() {
           <Text style={styles.emptyDesc}>Place your first Chopify order!</Text>
         </View>
       ) : (
-        <FlatList data={orders} keyExtractor={o => o.id} renderItem={renderOrder} contentContainerStyle={styles.list} showsVerticalScrollIndicator={false} onScroll={handleScroll} scrollEventThrottle={16} />
+        <FlatList data={orders} keyExtractor={o => o.id} renderItem={renderOrder} contentContainerStyle={styles.list} showsVerticalScrollIndicator={false} onScroll={handleScroll} scrollEventThrottle={16} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[COLORS.primary]} tintColor={COLORS.primary} />} />
       )}
     </SafeAreaView>
   );

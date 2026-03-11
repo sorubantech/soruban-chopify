@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useRef, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, StatusBar, TextInput, KeyboardAvoidingView, Platform, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, StatusBar, TextInput, KeyboardAvoidingView, Platform, Alert, Modal } from 'react-native';
 import Icon from '@expo/vector-icons/MaterialCommunityIcons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -38,6 +38,11 @@ export default function OrderDetailScreen() {
     setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
   };
 
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [cancelReason, setCancelReason] = useState('');
+  const [tipAmount, setTipAmount] = useState<number | null>(null);
+  const [tipSent, setTipSent] = useState(false);
+
   const [chatMessages, setChatMessages] = useState<ChatMsg[]>([
     { id: '1', text: 'Hi! Your order is being prepared.', sender: 'shop', time: '10:30 AM' },
     { id: '2', text: 'We are using the freshest vegetables for your order!', sender: 'shop', time: '10:31 AM' },
@@ -69,31 +74,30 @@ export default function OrderDetailScreen() {
 
   const handleCancelOrder = useCallback(() => {
     if (!order) return;
-    const paidOnline = order.paymentMethod && order.paymentMethod !== 'cod';
-    const refundMsg = paidOnline ? `\n\n₹${order.total} will be refunded to your wallet.` : '';
-    Alert.alert(
-      'Cancel Order',
-      `Are you sure you want to cancel order #${order.id}?${refundMsg}`,
-      [
-        { text: 'Keep Order', style: 'cancel' },
-        {
-          text: 'Cancel Order',
-          style: 'destructive',
-          onPress: async () => {
-            const result = await cancelOrder(order.id, 'Cancelled by user');
-            if (result.success) {
-              if (result.refundAmount && result.refundAmount > 0) {
-                await refundToWallet(result.refundAmount, order.id, `Refund for cancelled order #${order.id}`);
-              }
-              Alert.alert('Order Cancelled', result.message);
-            } else {
-              Alert.alert('Cannot Cancel', result.message);
-            }
-          },
-        },
-      ],
-    );
-  }, [order, cancelOrder, refundToWallet]);
+    setCancelReason('');
+    setShowCancelModal(true);
+  }, [order]);
+
+  const confirmCancelOrder = useCallback(async () => {
+    if (!order) return;
+    const reason = cancelReason.trim() || 'Cancelled by user';
+    setShowCancelModal(false);
+    const result = await cancelOrder(order.id, reason);
+    if (result.success) {
+      if (result.refundAmount && result.refundAmount > 0) {
+        await refundToWallet(result.refundAmount, order.id, `Refund for cancelled order #${order.id}`);
+      }
+      Alert.alert('Order Cancelled', result.message);
+    } else {
+      Alert.alert('Cannot Cancel', result.message);
+    }
+  }, [order, cancelReason, cancelOrder, refundToWallet]);
+
+  const handleSendTip = useCallback(() => {
+    if (!tipAmount || tipAmount <= 0) return;
+    setTipSent(true);
+    Alert.alert('Tip Sent!', `₹${tipAmount} tip has been sent to your delivery partner. Thank you!`);
+  }, [tipAmount]);
 
   if (!order) return <SafeAreaView style={styles.safe}><Text style={{ textAlign: 'center', marginTop: 60 }}>Order not found</Text></SafeAreaView>;
 
@@ -327,6 +331,84 @@ export default function OrderDetailScreen() {
           </View>
         )}
 
+        {/* Live Tracking */}
+        {order.status === 'out_for_delivery' && (
+          <TouchableOpacity
+            style={[styles.mapCard, themed.card]}
+            activeOpacity={0.85}
+            onPress={() => router.push({ pathname: '/delivery-tracking', params: { id: order.id } })}
+          >
+            <View style={styles.mapHeader}>
+              <Icon name="map-marker-radius" size={20} color={COLORS.primary} />
+              <Text style={[styles.mapTitle, themed.textPrimary]}>Live Tracking</Text>
+              <View style={{ marginLeft: 'auto', flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#F44336' }} />
+                <Text style={{ fontSize: 11, fontWeight: '700', color: '#F44336' }}>LIVE</Text>
+              </View>
+            </View>
+            <View style={styles.mapSimulation}>
+              <LinearGradient colors={['#E8F5E9', '#C8E6C9']} style={styles.mapGrad}>
+                <View style={styles.mapRoute}>
+                  <View style={styles.mapDotStart}>
+                    <Icon name="store" size={18} color="#FFF" />
+                  </View>
+                  <View style={styles.mapLine}>
+                    <View style={styles.mapLineFilled} />
+                    <View style={styles.mapBiker}>
+                      <Icon name="bike" size={16} color="#FFF" />
+                    </View>
+                  </View>
+                  <View style={styles.mapDotEnd}>
+                    <Icon name="home" size={18} color="#FFF" />
+                  </View>
+                </View>
+                <View style={styles.mapLabels}>
+                  <Text style={styles.mapLabelText}>Shop</Text>
+                  <Text style={styles.mapLabelText}>Your Location</Text>
+                </View>
+              </LinearGradient>
+            </View>
+            <View style={styles.mapInfo}>
+              <Icon name="clock-fast" size={14} color={COLORS.green} />
+              <Text style={styles.mapInfoText}>Tap to track your delivery partner in real-time</Text>
+              <Icon name="chevron-right" size={16} color={COLORS.primary} style={{ marginLeft: 'auto' }} />
+            </View>
+          </TouchableOpacity>
+        )}
+
+        {/* Tip After Delivery */}
+        {order.status === 'delivered' && !tipSent && (
+          <View style={[styles.tipCard, themed.card]}>
+            <View style={styles.tipHeader}>
+              <Icon name="hand-heart" size={20} color="#F57C00" />
+              <Text style={[styles.tipTitle, themed.textPrimary]}>Tip your delivery partner</Text>
+            </View>
+            <View style={styles.tipOptions}>
+              {[10, 20, 30, 50].map(amount => (
+                <TouchableOpacity
+                  key={amount}
+                  style={[styles.tipChip, tipAmount === amount && styles.tipChipActive]}
+                  onPress={() => setTipAmount(tipAmount === amount ? null : amount)}
+                >
+                  <Text style={[styles.tipChipText, tipAmount === amount && styles.tipChipTextActive]}>{'\u20B9'}{amount}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            {tipAmount && (
+              <TouchableOpacity style={styles.tipSendBtn} onPress={handleSendTip}>
+                <Icon name="hand-coin" size={16} color="#FFF" />
+                <Text style={styles.tipSendText}>Send {'\u20B9'}{tipAmount} Tip</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
+        {tipSent && (
+          <View style={styles.tipSentBadge}>
+            <Icon name="check-circle" size={16} color={COLORS.green} />
+            <Text style={styles.tipSentText}>Tip sent! Thank you for your generosity.</Text>
+          </View>
+        )}
+
         {/* Action Buttons Row */}
         <View style={styles.actionButtonsRow}>
           {cancelCheck.canCancel && (
@@ -351,9 +433,63 @@ export default function OrderDetailScreen() {
             </View>
             <Text style={[styles.actionBtnLabel, { color: COLORS.primary }]}>Reorder</Text>
           </TouchableOpacity>
+          <TouchableOpacity style={styles.actionBtn} onPress={() => router.push({ pathname: '/order-invoice' as any, params: { id: order.id } })}>
+            <View style={[styles.actionBtnIcon, { backgroundColor: '#E3F2FD' }]}>
+              <Icon name="receipt" size={20} color={COLORS.status.info} />
+            </View>
+            <Text style={[styles.actionBtnLabel, { color: COLORS.status.info }]}>Invoice</Text>
+          </TouchableOpacity>
         </View>
 
-        <View style={{ height: 30 }} />
+        <View style={{ height: 80 }} />
+
+      {/* Cancel Reason Modal */}
+      <Modal visible={showCancelModal} transparent animationType="fade" onRequestClose={() => setShowCancelModal(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, themed.card]}>
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, themed.textPrimary]}>Cancel Order</Text>
+              <TouchableOpacity onPress={() => setShowCancelModal(false)}>
+                <Icon name="close" size={22} color={COLORS.text.muted} />
+              </TouchableOpacity>
+            </View>
+            <Text style={styles.modalSubtext}>Why are you cancelling this order?</Text>
+            {['Changed my mind', 'Ordered by mistake', 'Found better price', 'Delivery too late', 'Other'].map(reason => (
+              <TouchableOpacity
+                key={reason}
+                style={[styles.cancelReasonChip, cancelReason === reason && styles.cancelReasonChipActive]}
+                onPress={() => setCancelReason(reason)}
+              >
+                <Icon name={cancelReason === reason ? 'radiobox-marked' : 'radiobox-blank'} size={18} color={cancelReason === reason ? COLORS.status.error : COLORS.text.muted} />
+                <Text style={[styles.cancelReasonText, cancelReason === reason && { color: COLORS.status.error, fontWeight: '700' }]}>{reason}</Text>
+              </TouchableOpacity>
+            ))}
+            {cancelReason === 'Other' && (
+              <TextInput
+                style={[styles.cancelReasonInput, themed.inputBg]}
+                placeholder="Tell us more..."
+                placeholderTextColor={COLORS.text.muted}
+                value={cancelReason === 'Other' ? '' : cancelReason}
+                onChangeText={(text) => setCancelReason(text || 'Other')}
+                multiline
+              />
+            )}
+            <View style={styles.modalActions}>
+              <TouchableOpacity style={styles.modalKeepBtn} onPress={() => setShowCancelModal(false)}>
+                <Text style={styles.modalKeepText}>Keep Order</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalCancelBtn, !cancelReason && { opacity: 0.5 }]}
+                onPress={confirmCancelOrder}
+                disabled={!cancelReason}
+              >
+                <Icon name="close-circle" size={16} color="#FFF" />
+                <Text style={styles.modalCancelText}>Cancel Order</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
       </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -455,4 +591,48 @@ const styles = StyleSheet.create({
   etaCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF', borderRadius: RADIUS.lg, padding: SPACING.base, marginBottom: SPACING.md, ...SHADOW.sm } as any,
   etaTitle: { fontSize: 13, fontWeight: '700', color: COLORS.text.primary } as any,
   etaTime: { fontSize: 15, fontWeight: '800', color: COLORS.green, marginTop: 2 } as any,
+  // Map simulation
+  mapCard: { backgroundColor: '#FFF', borderRadius: RADIUS.lg, padding: SPACING.base, marginBottom: SPACING.md, ...SHADOW.sm } as any,
+  mapHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: SPACING.md } as any,
+  mapTitle: { fontSize: 15, fontWeight: '800' } as any,
+  mapSimulation: { borderRadius: RADIUS.md, overflow: 'hidden', marginBottom: SPACING.sm } as any,
+  mapGrad: { padding: SPACING.lg } as any,
+  mapRoute: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' } as any,
+  mapDotStart: { width: 36, height: 36, borderRadius: 18, backgroundColor: COLORS.primary, justifyContent: 'center', alignItems: 'center' } as any,
+  mapLine: { flex: 1, height: 4, backgroundColor: '#A5D6A7', marginHorizontal: 8, borderRadius: 2, position: 'relative' } as any,
+  mapLineFilled: { position: 'absolute', left: 0, top: 0, bottom: 0, width: '60%', backgroundColor: COLORS.primary, borderRadius: 2 } as any,
+  mapBiker: { position: 'absolute', left: '55%', top: -14, width: 32, height: 32, borderRadius: 16, backgroundColor: COLORS.primary, justifyContent: 'center', alignItems: 'center' } as any,
+  mapDotEnd: { width: 36, height: 36, borderRadius: 18, backgroundColor: COLORS.status.info, justifyContent: 'center', alignItems: 'center' } as any,
+  mapLabels: { flexDirection: 'row', justifyContent: 'space-between', marginTop: SPACING.sm } as any,
+  mapLabelText: { fontSize: 10, fontWeight: '600', color: COLORS.text.secondary } as any,
+  mapInfo: { flexDirection: 'row', alignItems: 'center', gap: 6 } as any,
+  mapInfoText: { fontSize: 12, color: COLORS.green, fontWeight: '600' } as any,
+  // Tip
+  tipCard: { backgroundColor: '#FFF', borderRadius: RADIUS.lg, padding: SPACING.base, marginBottom: SPACING.md, ...SHADOW.sm } as any,
+  tipHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: SPACING.md } as any,
+  tipTitle: { fontSize: 14, fontWeight: '700' } as any,
+  tipOptions: { flexDirection: 'row', gap: 8 } as any,
+  tipChip: { flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: RADIUS.md, borderWidth: 1.5, borderColor: COLORS.border } as any,
+  tipChipActive: { borderColor: '#F57C00', backgroundColor: '#FFF8E1' } as any,
+  tipChipText: { fontSize: 14, fontWeight: '700', color: COLORS.text.secondary } as any,
+  tipChipTextActive: { color: '#F57C00' } as any,
+  tipSendBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: '#F57C00', borderRadius: RADIUS.full, paddingVertical: 12, marginTop: SPACING.md } as any,
+  tipSendText: { fontSize: 14, fontWeight: '700', color: '#FFF' } as any,
+  tipSentBadge: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#E8F5E9', borderRadius: RADIUS.lg, padding: SPACING.base, marginBottom: SPACING.md } as any,
+  tipSentText: { fontSize: 12, fontWeight: '600', color: COLORS.green } as any,
+  // Cancel modal
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: SPACING.xl } as any,
+  modalContent: { width: '100%', backgroundColor: '#FFF', borderRadius: RADIUS.lg, padding: SPACING.lg, ...SHADOW.floating } as any,
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: SPACING.sm } as any,
+  modalTitle: { fontSize: 17, fontWeight: '800' } as any,
+  modalSubtext: { fontSize: 13, color: COLORS.text.secondary, marginBottom: SPACING.md } as any,
+  cancelReasonChip: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: COLORS.border } as any,
+  cancelReasonChipActive: { backgroundColor: '#FFEBEE', marginHorizontal: -SPACING.lg, paddingHorizontal: SPACING.lg, borderBottomColor: 'transparent' } as any,
+  cancelReasonText: { fontSize: 14, color: COLORS.text.primary } as any,
+  cancelReasonInput: { backgroundColor: '#F7F7F7', borderRadius: RADIUS.md, padding: SPACING.md, fontSize: 13, borderWidth: 1, borderColor: COLORS.border, minHeight: 50, textAlignVertical: 'top', marginTop: SPACING.sm } as any,
+  modalActions: { flexDirection: 'row', gap: 10, marginTop: SPACING.lg } as any,
+  modalKeepBtn: { flex: 1, alignItems: 'center', paddingVertical: 12, borderRadius: RADIUS.full, borderWidth: 1.5, borderColor: COLORS.border } as any,
+  modalKeepText: { fontSize: 14, fontWeight: '700', color: COLORS.text.secondary } as any,
+  modalCancelBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 12, borderRadius: RADIUS.full, backgroundColor: COLORS.status.error } as any,
+  modalCancelText: { fontSize: 14, fontWeight: '700', color: '#FFF' } as any,
 });

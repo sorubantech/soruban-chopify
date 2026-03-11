@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, StatusBar, TextInput, Alert, Modal } from 'react-native';
+import React, { useState, useCallback } from 'react';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, StatusBar, TextInput, Alert, Modal, RefreshControl } from 'react-native';
 import Icon from '@expo/vector-icons/MaterialCommunityIcons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
@@ -44,6 +44,11 @@ export default function WalletScreen() {
   const [filter, setFilter] = useState<'all' | 'credit' | 'debit'>('all');
   const [showTopUp, setShowTopUp] = useState(false);
   const [topUpAmount, setTopUpAmount] = useState('');
+  const [refreshing, setRefreshing] = useState(false);
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    setTimeout(() => setRefreshing(false), 1000);
+  }, []);
 
   const filteredTransactions = filter === 'all' ? transactions
     : transactions.filter(t => t.type === filter);
@@ -160,6 +165,7 @@ export default function WalletScreen() {
         renderItem={renderTransaction}
         contentContainerStyle={styles.list}
         showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[COLORS.primary]} tintColor={COLORS.primary} />}
         ListEmptyComponent={
           <View style={styles.empty}>
             <Icon name="wallet-outline" size={48} color={COLORS.text.muted} />

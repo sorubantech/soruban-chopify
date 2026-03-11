@@ -82,13 +82,83 @@ function buildTimeline(createdAt: Date): OrderTimeline[] {
   ];
 }
 
+const DEMO_ORDERS: Order[] = [
+  {
+    id: 'CUT1001',
+    items: [
+      { id: '1', name: 'Fresh Tomatoes', image: 'https://images.unsplash.com/photo-1546470427-0d4db154ceb8?w=200', price: 40, quantity: 2, unit: '500g', cutType: 'diced' as any },
+      { id: '4', name: 'Onions', image: 'https://images.unsplash.com/photo-1618512496248-a07fe83aa8cb?w=200', price: 35, quantity: 1, unit: '1 kg' },
+    ],
+    status: 'out_for_delivery',
+    total: 145,
+    subtotal: 115,
+    cuttingCharges: 10,
+    deliveryFee: 20,
+    discount: 0,
+    orderType: 'delivery',
+    deliverySlot: '10:00 AM - 12:00 PM',
+    deliveryAddress: '42, Anna Nagar, Coimbatore',
+    createdAt: new Date(Date.now() - 45 * 60 * 1000).toISOString(),
+    estimatedDelivery: '10-15 min',
+    paymentMethod: 'upi',
+    timeline: [
+      { status: 'Order Placed', time: '9:15 AM', description: 'Your order has been placed successfully', completed: true },
+      { status: 'Confirmed', time: '9:17 AM', description: 'Store confirmed your order', completed: true },
+      { status: 'Cutting Started', time: '9:20 AM', description: 'Our team is cutting your vegetables fresh', completed: true },
+      { status: 'Quality Check', time: '9:30 AM', description: 'Checking freshness and cut quality', completed: true },
+      { status: 'Packed', time: '9:35 AM', description: 'Items packed hygienically for delivery', completed: true },
+      { status: 'Out for Delivery', time: '9:45 AM', description: 'Your order is on the way', completed: true },
+      { status: 'Delivered', time: '', description: 'Order delivered successfully', completed: false },
+    ],
+  },
+  {
+    id: 'CUT1002',
+    items: [
+      { id: '7', name: 'Carrots', image: 'https://images.unsplash.com/photo-1598170845058-32b9d6a5da37?w=200', price: 45, quantity: 1, unit: '500g', cutType: 'julienne' as any },
+      { id: '13', name: 'Capsicum', image: 'https://images.unsplash.com/photo-1563565375-f3fdfdbefa83?w=200', price: 60, quantity: 1, unit: '250g', cutType: 'sliced' as any },
+    ],
+    status: 'delivered',
+    total: 135,
+    subtotal: 105,
+    cuttingCharges: 15,
+    deliveryFee: 15,
+    discount: 0,
+    orderType: 'delivery',
+    deliverySlot: '7:00 AM - 8:00 AM',
+    deliveryAddress: '42, Anna Nagar, Coimbatore',
+    createdAt: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString(),
+    estimatedDelivery: 'Delivered',
+    paymentMethod: 'cod',
+    timeline: [
+      { status: 'Order Placed', time: '6:00 AM', description: 'Your order has been placed successfully', completed: true },
+      { status: 'Confirmed', time: '6:02 AM', description: 'Store confirmed your order', completed: true },
+      { status: 'Cutting Started', time: '6:10 AM', description: 'Our team is cutting your vegetables fresh', completed: true },
+      { status: 'Quality Check', time: '6:25 AM', description: 'Checking freshness and cut quality', completed: true },
+      { status: 'Packed', time: '6:30 AM', description: 'Items packed hygienically for delivery', completed: true },
+      { status: 'Out for Delivery', time: '6:40 AM', description: 'Your order is on the way', completed: true },
+      { status: 'Delivered', time: '7:05 AM', description: 'Order delivered successfully', completed: true },
+    ],
+  },
+];
+
 export function OrderProvider({ children }: { children: React.ReactNode }) {
   const [orders, setOrders] = useState<Order[]>([]);
 
   const loadOrders = useCallback(async () => {
     try {
       const raw = await AsyncStorage.getItem(ORDERS_KEY);
-      if (raw) setOrders(JSON.parse(raw));
+      const demoIds = new Set(DEMO_ORDERS.map(d => d.id));
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        // Replace demo orders with latest demo data (to ensure correct status), keep user orders
+        const userOrders = parsed.filter((o: Order) => !demoIds.has(o.id));
+        const merged = [...DEMO_ORDERS, ...userOrders];
+        await AsyncStorage.setItem(ORDERS_KEY, JSON.stringify(merged));
+        setOrders(merged);
+      } else {
+        await AsyncStorage.setItem(ORDERS_KEY, JSON.stringify(DEMO_ORDERS));
+        setOrders(DEMO_ORDERS);
+      }
     } catch {}
   }, []);
 

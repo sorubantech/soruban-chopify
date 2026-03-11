@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { View, Text, StyleSheet, FlatList, ScrollView, TouchableOpacity, Image, StatusBar, useWindowDimensions, TextInput } from 'react-native';
+import { View, Text, StyleSheet, FlatList, ScrollView, TouchableOpacity, Image, StatusBar, useWindowDimensions, TextInput, Share } from 'react-native';
 import Icon from '@expo/vector-icons/MaterialCommunityIcons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -32,6 +32,12 @@ export default function BrowseScreen() {
   const [sortBy, setSortBy] = useState<'default' | 'price_low' | 'price_high' | 'name'>('default');
   const [showOutOfStock, setShowOutOfStock] = useState(true);
 
+  const handleShareProduct = async (name: string, price: number) => {
+    try {
+      await Share.share({ message: `Check out ${name} (₹${price}) on Chopify! Fresh cut vegetables delivered to your door.` });
+    } catch {}
+  };
+
   const subs = SUBCATEGORIES[activeCategory] || ['All'];
 
   const products = useMemo(() => {
@@ -60,7 +66,10 @@ export default function BrowseScreen() {
       <View style={styles.cardImageWrap}>
         <Image source={{ uri: item.image }} style={styles.cardImage} resizeMode="cover" />
         {item.discount && <View style={styles.discountTag}><Text style={styles.discountText}>{item.discount}</Text></View>}
-        <TouchableOpacity style={styles.favBtn} onPress={() => toggleFavorite(item.id)}><Icon name={isFavorite(item.id) ? 'heart' : 'heart-outline'} size={18} color={isFavorite(item.id) ? COLORS.primary : '#999'} /></TouchableOpacity>
+        <View style={styles.cardActions}>
+          <TouchableOpacity style={styles.favBtn} onPress={() => toggleFavorite(item.id)}><Icon name={isFavorite(item.id) ? 'heart' : 'heart-outline'} size={18} color={isFavorite(item.id) ? COLORS.primary : '#999'} /></TouchableOpacity>
+          <TouchableOpacity style={[styles.favBtn, { top: 36 }]} onPress={() => handleShareProduct(item.name, item.price)}><Icon name="share-variant" size={16} color="#999" /></TouchableOpacity>
+        </View>
         {item.inStock === false && <View style={styles.outOfStockOverlay}><Text style={styles.outOfStockText}>Out of Stock</Text></View>}
       </View>
       <View style={styles.cardBody}>
@@ -186,6 +195,7 @@ const styles = StyleSheet.create({
   sortChipText: { fontSize: 11, fontWeight: '600', color: COLORS.text.secondary },
   sortChipTextActive: { color: COLORS.green },
   stockToggle: { padding: 6 },
+  cardActions: { position: 'absolute', top: 0, right: 0, zIndex: 2 },
   favBtn: { position: 'absolute', top: 6, right: 6, width: 28, height: 28, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.9)', justifyContent: 'center', alignItems: 'center', zIndex: 1 },
   outOfStockOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(255,255,255,0.7)', justifyContent: 'center', alignItems: 'center', borderRadius: RADIUS.lg },
   outOfStockText: { fontSize: 12, fontWeight: '700', color: COLORS.status.error },

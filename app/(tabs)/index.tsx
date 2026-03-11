@@ -17,6 +17,7 @@ import { DISH_PACKS } from '@/data/dishPacks';
 import productsData from '@/data/products.json';
 import { useOrders } from '@/context/OrderContext';
 import { useLoyalty } from '@/context/LoyaltyContext';
+import { useRecentlyViewed } from '@/context/RecentlyViewedContext';
 import { SEASONAL_PICKS } from '@/data/recipes';
 import { FESTIVAL_PACKS } from '@/data/festivalPacks';
 
@@ -187,12 +188,17 @@ export default function HomeScreen() {
   const sportsFoods = useMemo(() => productsData.filter(p => p.category === 'Sports Nutrition').slice(0, 6), []);
   const { orders } = useOrders();
   const { loyalty, dailyCheckIn } = useLoyalty();
+  const { recentlyViewed } = useRecentlyViewed();
 
   const recentlyOrdered = useMemo(() => {
     const itemIds = new Set<string>();
     orders.slice(0, 5).forEach(o => o.items.forEach(i => { if (itemIds.size < 8) itemIds.add(i.id); }));
     return productsData.filter(p => itemIds.has(p.id));
   }, [orders]);
+
+  const recentlyViewedProducts = useMemo(() => {
+    return recentlyViewed.map(id => productsData.find(p => p.id === id)).filter(Boolean).slice(0, 8) as typeof productsData;
+  }, [recentlyViewed]);
 
   const newArrivals = useMemo(() => productsData.filter(p => p.tags?.includes('new') || p.tags?.includes('seasonal')).slice(0, 6), []);
   const currentSeason = useMemo(() => SEASONAL_PICKS[0], []);
@@ -315,6 +321,20 @@ export default function HomeScreen() {
             </ScrollView>
           </>
         )}
+
+        {/* ━━━ RECENTLY VIEWED ━━━ */}
+        {/* {recentlyViewedProducts.length > 0 && (
+          <>
+            <View style={styles.sectionHeaderRow}>
+              <Text style={[styles.sectionTitle, themed.textPrimary, { marginTop: 0, marginBottom: 0 }]}>Recently Viewed</Text>
+            </View>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.horizontalList}>
+              {recentlyViewedProducts.map(item => (
+                <ProductMiniCard key={`rv_${item.id}`} item={item} themed={themed} />
+              ))}
+            </ScrollView>
+          </>
+        )} */}
 
         {/* ━━━ 4. DISH PACKS (banner + carousel) ━━━ */}
         <TouchableOpacity style={styles.packsBanner} onPress={() => router.push('/(tabs)/packs')} activeOpacity={0.85}>

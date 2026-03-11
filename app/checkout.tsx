@@ -162,7 +162,13 @@ export default function CheckoutScreen() {
   const [selectedSlot, setSelectedSlot] = useState(deliverySlotsData[0].id);
   const [scheduleDate, setScheduleDate] = useState(SCHEDULE_DATES[1].key);
   const [scheduleTime, setScheduleTime] = useState(TIME_SLOTS[0].id);
-  const [address, setAddress] = useState('42, Anna Nagar, Coimbatore');
+  const SAVED_ADDRESSES = [
+    { id: 'addr1', label: 'Home', address: '42, Anna Nagar, Coimbatore', icon: 'home' as const },
+    { id: 'addr2', label: 'Work', address: '15, RS Puram, Coimbatore', icon: 'office-building' as const },
+    { id: 'addr3', label: 'Other', address: '8, Gandhipuram, Coimbatore', icon: 'map-marker' as const },
+  ];
+  const [selectedAddressId, setSelectedAddressId] = useState('addr1');
+  const address = SAVED_ADDRESSES.find(a => a.id === selectedAddressId)?.address || SAVED_ADDRESSES[0].address;
   const [orderNote, setOrderNote] = useState('');
   const [payment, setPayment] = useState<'cod' | 'upi' | 'wallet'>('cod');
   const [useWalletBalance, setUseWalletBalance] = useState(false);
@@ -428,10 +434,28 @@ export default function CheckoutScreen() {
       </LinearGradient>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
-        {/* Address */}
+        {/* Address Selection */}
         <View style={[styles.sectionCard, themed.card]}>
           <View style={styles.sectionHeader}><Icon name="map-marker" size={20} color={COLORS.primary} /><Text style={[styles.sectionTitle, themed.textPrimary]}>Delivery Address</Text></View>
-          <TextInput style={[styles.addressInput, themed.inputBg]} value={address} onChangeText={setAddress} multiline numberOfLines={2} />
+          {SAVED_ADDRESSES.map(addr => {
+            const isSelected = selectedAddressId === addr.id;
+            return (
+              <TouchableOpacity key={addr.id} style={[styles.addressOption, isSelected && styles.addressOptionActive]} onPress={() => setSelectedAddressId(addr.id)}>
+                <View style={[styles.addressIconWrap, isSelected && styles.addressIconWrapActive]}>
+                  <Icon name={addr.icon} size={18} color={isSelected ? '#FFF' : COLORS.text.secondary} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.addressLabel, isSelected && styles.addressLabelActive]}>{addr.label}</Text>
+                  <Text style={styles.addressText} numberOfLines={1}>{addr.address}</Text>
+                </View>
+                {isSelected && <Icon name="check-circle" size={20} color={COLORS.primary} />}
+              </TouchableOpacity>
+            );
+          })}
+          <TouchableOpacity style={styles.addAddressBtn} onPress={() => router.push('/addresses' as any)}>
+            <Icon name="plus" size={16} color={COLORS.primary} />
+            <Text style={styles.addAddressBtnText}>Add New Address</Text>
+          </TouchableOpacity>
         </View>
 
         {/* Delivery Mode Toggle */}
@@ -1198,6 +1222,15 @@ const styles = StyleSheet.create({
   sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: SPACING.md },
   sectionTitle: { fontSize: 15, fontWeight: '800', color: COLORS.text.primary },
   addressInput: { backgroundColor: '#F7F7F7', borderRadius: RADIUS.md, padding: SPACING.md, fontSize: 13, color: COLORS.text.primary, borderWidth: 1, borderColor: COLORS.border },
+  addressOption: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10, paddingHorizontal: 8, borderRadius: RADIUS.md, marginBottom: 6, borderWidth: 1.5, borderColor: COLORS.border },
+  addressOptionActive: { borderColor: COLORS.primary, backgroundColor: '#E8F5E9' },
+  addressIconWrap: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#F5F5F5', justifyContent: 'center', alignItems: 'center' },
+  addressIconWrapActive: { backgroundColor: COLORS.primary },
+  addressLabel: { fontSize: 13, fontWeight: '700', color: COLORS.text.primary },
+  addressLabelActive: { color: COLORS.primary },
+  addressText: { fontSize: 11, color: COLORS.text.muted, marginTop: 1 },
+  addAddressBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10, borderRadius: RADIUS.md, borderWidth: 1.5, borderColor: COLORS.primary, borderStyle: 'dashed', marginTop: 4 },
+  addAddressBtnText: { fontSize: 12, fontWeight: '700', color: COLORS.primary },
   // Delivery Mode Toggle
   modeToggle: { flexDirection: 'row', gap: 8, marginBottom: SPACING.md },
   modeBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 12, borderRadius: RADIUS.lg, borderWidth: 1.5, borderColor: COLORS.border, backgroundColor: '#FFF' },

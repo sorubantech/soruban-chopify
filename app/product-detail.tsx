@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, StatusBar, TextInput, Modal, Share, Alert } from 'react-native';
 import Icon from '@expo/vector-icons/MaterialCommunityIcons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -12,6 +12,7 @@ import { CUT_TYPE_OPTIONS, WEIGHT_OPTIONS, getCutFee } from '@/data/cutTypes';
 import { useCart } from '@/context/CartContext';
 import { useFavorites } from '@/context/FavoritesContext';
 import { useReviews } from '@/context/ReviewContext';
+import { useRecentlyViewed } from '@/context/RecentlyViewedContext';
 import productsData from '@/data/products.json';
 import { NUTRITION_DATA, DEFAULT_NUTRITION } from '@/data/nutrition';
 import { DISH_PACKS } from '@/data/dishPacks';
@@ -24,6 +25,7 @@ export default function ProductDetailScreen() {
   const { addToCart, cartItems } = useCart();
   const { isFavorite, toggleFavorite } = useFavorites();
   const { getProductReviews, getAverageRating, markHelpful } = useReviews();
+  const { addToRecentlyViewed } = useRecentlyViewed();
   const productReviews = getProductReviews(id);
   const avgRating = getAverageRating(id);
   const nutrition = NUTRITION_DATA[id] || DEFAULT_NUTRITION;
@@ -37,6 +39,21 @@ export default function ProductDetailScreen() {
   const [quantity, setQuantity] = useState(1);
   const [instructions, setInstructions] = useState('');
   const [videoModal, setVideoModal] = useState<{ url: string; label: string } | null>(null);
+
+  // Track recently viewed
+  useEffect(() => {
+    if (id) addToRecentlyViewed(id);
+  }, [id, addToRecentlyViewed]);
+
+  // Simulated stock status
+  const stockStatus = useMemo(() => {
+    if (!product) return { inStock: false, label: '', color: '' };
+    const hash = id.split('').reduce((a, c) => a + c.charCodeAt(0), 0);
+    const qty = (hash % 50) + 1;
+    if (qty <= 5) return { inStock: true, label: `Only ${qty} left!`, color: '#F44336' };
+    if (qty <= 15) return { inStock: true, label: 'Limited Stock', color: '#FF9800' };
+    return { inStock: true, label: 'In Stock', color: COLORS.green };
+  }, [id, product]);
 
   if (!product) return <SafeAreaView style={styles.safe}><Text style={{ textAlign: 'center', marginTop: 60 }}>Product not found</Text></SafeAreaView>;
 
@@ -85,7 +102,7 @@ export default function ProductDetailScreen() {
                   <Icon name={isFavorite(id) ? 'heart' : 'heart-outline'} size={22} color={isFavorite(id) ? COLORS.primary : COLORS.text.primary} />
                 </TouchableOpacity>
                 <TouchableOpacity onPress={handleShare} style={styles.headerActionBtn}>
-                  <Icon name="share-variant" size={22} color={COLORS.text.primary} />
+                  <Icon name="share-variant" size={22} color="#FFF" />
                 </TouchableOpacity>
               </View>
             </View>
@@ -103,6 +120,12 @@ export default function ProductDetailScreen() {
               <Text style={styles.priceUnit}>/{product.unit}</Text>
             </View>
           </View>
+          {/* Stock Status */}
+          <View style={[styles.stockBadge, { backgroundColor: `${stockStatus.color}15` }]}>
+            <Icon name={stockStatus.color === COLORS.green ? 'check-circle' : 'alert-circle'} size={14} color={stockStatus.color} />
+            <Text style={[styles.stockText, { color: stockStatus.color }]}>{stockStatus.label}</Text>
+          </View>
+
           {product.description && <Text style={styles.description}>{product.description}</Text>}
 
           {/* Tags */}
@@ -428,6 +451,8 @@ const styles = StyleSheet.create({
   priceTag: { alignItems: 'flex-end' },
   priceText: { fontSize: 22, fontWeight: '800', color: COLORS.primary },
   priceUnit: { fontSize: 11, color: COLORS.text.muted },
+  stockBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 5, borderRadius: RADIUS.full, marginTop: SPACING.sm },
+  stockText: { fontSize: 12, fontWeight: '700' },
   description: { fontSize: 13, color: COLORS.text.secondary, lineHeight: 19, marginTop: SPACING.md },
   tagsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: SPACING.md },
   tagChip: { backgroundColor: '#E8F5E9', borderRadius: RADIUS.sm, paddingHorizontal: 8, paddingVertical: 3 },

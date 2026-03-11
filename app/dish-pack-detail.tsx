@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, StatusBar, TextInput, Modal } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, StatusBar, TextInput, Modal, Share } from 'react-native';
 import Icon from '@expo/vector-icons/MaterialCommunityIcons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -90,6 +90,15 @@ export default function DishPackDetailScreen() {
     router.back();
   };
 
+  const handleShare = async () => {
+    if (!pack) return;
+    try {
+      await Share.share({
+        message: `Check out "${pack.name}" pack on Chopify! ${pack.description} Order fresh cut vegetables delivered to your door.`,
+      });
+    } catch {}
+  };
+
   if (!pack) return <SafeAreaView style={styles.safe}><Text style={{ textAlign: 'center', marginTop: 60 }}>Pack not found</Text></SafeAreaView>;
 
   const activeVariant = pack.regionalVariants?.find(v => v.id === selectedVariant);
@@ -102,7 +111,7 @@ export default function DishPackDetailScreen() {
           <View style={styles.headerRow}>
             <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}><Icon name="arrow-left" size={24} color={COLORS.text.primary} /></TouchableOpacity>
             <Text style={[styles.headerTitle, themed.textPrimary]}>{pack.name}</Text>
-            <View style={{ width: 40 }} />
+            <TouchableOpacity onPress={handleShare} style={styles.backBtn}><Icon name="share-variant" size={22} color={COLORS.text.primary} /></TouchableOpacity>
           </View>
         </SafeAreaView>
       </LinearGradient>

@@ -167,7 +167,7 @@ const styles = StyleSheet.create({
   actionBtn: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   actionText: { fontSize: 12, fontWeight: '600' },
   addBtn: {
-    position: 'absolute', bottom: SPACING.xl, left: SPACING.base, right: SPACING.base,
+    position: 'absolute', bottom: 40, left: SPACING.base, right: SPACING.base,
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
     backgroundColor: COLORS.primary, borderRadius: RADIUS.full, paddingVertical: 14,
     elevation: 4, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 4,

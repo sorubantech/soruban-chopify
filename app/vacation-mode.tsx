@@ -1,5 +1,5 @@
-import React, { useState, useMemo } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, StatusBar, Alert } from 'react-native';
+import React, { useState, useMemo, useCallback } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, StatusBar, Alert, Dimensions } from 'react-native';
 import Icon from '@expo/vector-icons/MaterialCommunityIcons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
@@ -29,6 +29,12 @@ function daysBetween(start: Date, end: Date): number {
   return Math.max(0, Math.ceil(ms / (1000 * 60 * 60 * 24)));
 }
 
+const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const MONTH_NAMES = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December',
+];
+
 export default function VacationModeScreen() {
   const router = useRouter();
   const themed = useThemedStyles();
@@ -42,6 +48,9 @@ export default function VacationModeScreen() {
   const [endDate, setEndDate] = useState<Date>(addDays(today, 7));
   const [refundType, setRefundType] = useState<'extend' | 'wallet'>('extend');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [selectingField, setSelectingField] = useState<'from' | 'to'>('from');
+  const [calMonth, setCalMonth] = useState(today.getMonth());
+  const [calYear, setCalYear] = useState(today.getFullYear());
 
   const subscriptionOrders = useMemo(() => {
     return orders.filter(
@@ -51,18 +60,83 @@ export default function VacationModeScreen() {
 
   const isActive = vacationMode?.isActive ?? false;
 
-  const adjustStartDate = (delta: number) => {
-    const next = addDays(startDate, delta);
-    if (next <= today) return;
-    if (next >= endDate) return;
-    setStartDate(next);
-  };
+  // Calendar grid
+  const calendarGrid = useMemo(() => {
+    const firstDay = new Date(calYear, calMonth, 1).getDay();
+    const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+    const rows: (number | null)[][] = [];
+    let row: (number | null)[] = [];
+    for (let i = 0; i < firstDay; i++) row.push(null);
+    for (let day = 1; day <= daysInMonth; day++) {
+      row.push(day);
+      if (row.length === 7) { rows.push(row); row = []; }
+    }
+    if (row.length > 0) {
+      while (row.length < 7) row.push(null);
+      rows.push(row);
+    }
+    return rows;
+  }, [calMonth, calYear]);
 
-  const adjustEndDate = (delta: number) => {
-    const next = addDays(endDate, delta);
-    if (next <= startDate) return;
-    setEndDate(next);
-  };
+  const goToPrevMonth = useCallback(() => {
+    if (calMonth === 0) { setCalMonth(11); setCalYear(y => y - 1); }
+    else { setCalMonth(m => m - 1); }
+  }, [calMonth]);
+
+  const goToNextMonth = useCallback(() => {
+    if (calMonth === 11) { setCalMonth(0); setCalYear(y => y + 1); }
+    else { setCalMonth(m => m + 1); }
+  }, [calMonth]);
+
+  const handleDayPress = useCallback((day: number) => {
+    const selected = new Date(calYear, calMonth, day);
+    selected.setHours(0, 0, 0, 0);
+    if (selected <= today) return; // Can't select today or past
+
+    if (selectingField === 'from') {
+      setStartDate(selected);
+      // If the new start is after current end, push end forward
+      if (selected >= endDate) {
+        setEndDate(addDays(selected, 1));
+      }
+      setSelectingField('to');
+    } else {
+      if (selected <= startDate) {
+        // If user picks a date before start, make it the new start instead
+        setStartDate(selected);
+        setSelectingField('to');
+      } else {
+        setEndDate(selected);
+        setSelectingField('from');
+      }
+    }
+  }, [calYear, calMonth, selectingField, startDate, endDate, today]);
+
+  const isInRange = useCallback((day: number) => {
+    const d = new Date(calYear, calMonth, day);
+    d.setHours(0, 0, 0, 0);
+    return d > startDate && d < endDate;
+  }, [calYear, calMonth, startDate, endDate]);
+
+  const isStartDay = useCallback((day: number) => {
+    const d = new Date(calYear, calMonth, day);
+    return d.getFullYear() === startDate.getFullYear() && d.getMonth() === startDate.getMonth() && d.getDate() === startDate.getDate();
+  }, [calYear, calMonth, startDate]);
+
+  const isEndDay = useCallback((day: number) => {
+    const d = new Date(calYear, calMonth, day);
+    return d.getFullYear() === endDate.getFullYear() && d.getMonth() === endDate.getMonth() && d.getDate() === endDate.getDate();
+  }, [calYear, calMonth, endDate]);
+
+  const isPastDay = useCallback((day: number) => {
+    const d = new Date(calYear, calMonth, day);
+    d.setHours(0, 0, 0, 0);
+    return d <= today;
+  }, [calYear, calMonth, today]);
+
+  const isTodayDay = useCallback((day: number) => {
+    return calYear === today.getFullYear() && calMonth === today.getMonth() && day === today.getDate();
+  }, [calYear, calMonth, today]);
 
   const handleActivate = () => {
     if (subscriptionOrders.length === 0) {
@@ -296,77 +370,138 @@ export default function VacationModeScreen() {
           </>
         ) : (
           <>
-            {/* Date Range Picker */}
+            {/* Calendar Date Picker */}
             <View style={[styles.sectionCard, themed.card, themed.borderColor]}>
               <Text style={[styles.sectionTitle, themed.textPrimary]}>Select Date Range</Text>
 
-              {/* Start Date */}
-              <View style={styles.datePickerRow}>
-                <Text style={[styles.dateLabel, themed.textSecondary]}>Start Date</Text>
-                <View style={styles.dateControls}>
-                  <TouchableOpacity
-                    style={[styles.dateBtn, themed.borderColor]}
-                    onPress={() => adjustStartDate(-1)}
-                    activeOpacity={0.7}
-                  >
-                    <Icon name="minus" size={18} color={themed.colors.text.primary} />
-                  </TouchableOpacity>
-                  <View style={styles.dateDisplay}>
-                    <Icon name="calendar-start" size={16} color={COLORS.primary} />
-                    <Text style={[styles.dateText, themed.textPrimary]}>{formatDate(startDate)}</Text>
-                  </View>
-                  <TouchableOpacity
-                    style={[styles.dateBtn, themed.borderColor]}
-                    onPress={() => adjustStartDate(1)}
-                    activeOpacity={0.7}
-                  >
-                    <Icon name="plus" size={18} color={themed.colors.text.primary} />
-                  </TouchableOpacity>
-                </View>
+              {/* From / To selector tabs */}
+              <View style={styles.fieldTabs}>
+                <TouchableOpacity
+                  style={[styles.fieldTab, selectingField === 'from' && styles.fieldTabActive]}
+                  onPress={() => setSelectingField('from')}
+                  activeOpacity={0.7}
+                >
+                  <Icon name="calendar-start" size={16} color={selectingField === 'from' ? '#FFF' : COLORS.primary} />
+                  <Text style={[styles.fieldTabText, selectingField === 'from' && styles.fieldTabTextActive]}>From</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.fieldTab, selectingField === 'to' && styles.fieldTabActive]}
+                  onPress={() => setSelectingField('to')}
+                  activeOpacity={0.7}
+                >
+                  <Icon name="calendar-end" size={16} color={selectingField === 'to' ? '#FFF' : COLORS.status.error} />
+                  <Text style={[styles.fieldTabText, selectingField === 'to' && styles.fieldTabTextActive]}>To</Text>
+                </TouchableOpacity>
               </View>
 
-              {/* End Date */}
-              <View style={styles.datePickerRow}>
-                <Text style={[styles.dateLabel, themed.textSecondary]}>End Date</Text>
-                <View style={styles.dateControls}>
-                  <TouchableOpacity
-                    style={[styles.dateBtn, themed.borderColor]}
-                    onPress={() => adjustEndDate(-1)}
-                    activeOpacity={0.7}
-                  >
-                    <Icon name="minus" size={18} color={themed.colors.text.primary} />
-                  </TouchableOpacity>
-                  <View style={styles.dateDisplay}>
-                    <Icon name="calendar-end" size={16} color={COLORS.status.error} />
-                    <Text style={[styles.dateText, themed.textPrimary]}>{formatDate(endDate)}</Text>
-                  </View>
-                  <TouchableOpacity
-                    style={[styles.dateBtn, themed.borderColor]}
-                    onPress={() => adjustEndDate(1)}
-                    activeOpacity={0.7}
-                  >
-                    <Icon name="plus" size={18} color={themed.colors.text.primary} />
-                  </TouchableOpacity>
-                </View>
-              </View>
-
-              {/* Duration */}
-              <View style={styles.durationRow}>
-                <Icon name="clock-outline" size={16} color={COLORS.text.muted} />
-                <Text style={styles.durationText}>
-                  {daysBetween(startDate, endDate)} {daysBetween(startDate, endDate) === 1 ? 'day' : 'days'}
+              {/* Month Navigation */}
+              <View style={styles.calMonthNav}>
+                <TouchableOpacity onPress={goToPrevMonth} style={styles.calMonthArrow}>
+                  <Icon name="chevron-left" size={24} color={themed.colors.primary} />
+                </TouchableOpacity>
+                <Text style={[styles.calMonthLabel, themed.textPrimary]}>
+                  {MONTH_NAMES[calMonth]} {calYear}
                 </Text>
+                <TouchableOpacity onPress={goToNextMonth} style={styles.calMonthArrow}>
+                  <Icon name="chevron-right" size={24} color={themed.colors.primary} />
+                </TouchableOpacity>
+              </View>
+
+              {/* Day Headers */}
+              <View style={styles.calDayHeaderRow}>
+                {DAY_NAMES.map(name => (
+                  <View key={name} style={styles.calDayHeaderCell}>
+                    <Text style={[styles.calDayHeaderText, themed.textMuted]}>{name}</Text>
+                  </View>
+                ))}
+              </View>
+
+              {/* Calendar Grid */}
+              {calendarGrid.map((row, rowIdx) => (
+                <View key={rowIdx} style={styles.calDayRow}>
+                  {row.map((day, colIdx) => {
+                    if (day === null) return <View key={`blank-${colIdx}`} style={styles.calDayCell} />;
+                    const past = isPastDay(day);
+                    const isStart = isStartDay(day);
+                    const isEnd = isEndDay(day);
+                    const inRange = isInRange(day);
+                    const isT = isTodayDay(day);
+
+                    return (
+                      <TouchableOpacity
+                        key={day}
+                        style={[
+                          styles.calDayCell,
+                          inRange && styles.calDayCellInRange,
+                          isStart && styles.calDayCellStart,
+                          isEnd && styles.calDayCellEnd,
+                          isT && !isStart && !isEnd && styles.calDayCellToday,
+                        ]}
+                        onPress={() => !past && handleDayPress(day)}
+                        activeOpacity={past ? 1 : 0.6}
+                        disabled={past}
+                      >
+                        <Text style={[
+                          styles.calDayNumber,
+                          themed.textPrimary,
+                          past && styles.calDayPast,
+                          (isStart || isEnd) && styles.calDaySelected,
+                          inRange && styles.calDayInRangeText,
+                        ]}>
+                          {day}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              ))}
+
+              {/* Legend */}
+              <View style={styles.calLegend}>
+                <View style={styles.calLegendItem}>
+                  <View style={[styles.calLegendDot, { backgroundColor: COLORS.primary }]} />
+                  <Text style={[styles.calLegendText, themed.textMuted]}>Start</Text>
+                </View>
+                <View style={styles.calLegendItem}>
+                  <View style={[styles.calLegendDot, { backgroundColor: COLORS.status.error }]} />
+                  <Text style={[styles.calLegendText, themed.textMuted]}>End</Text>
+                </View>
+                <View style={styles.calLegendItem}>
+                  <View style={[styles.calLegendDot, { backgroundColor: COLORS.primaryLight + '40' }]} />
+                  <Text style={[styles.calLegendText, themed.textMuted]}>Range</Text>
+                </View>
               </View>
             </View>
 
-            {/* Preview */}
-            <View style={[styles.previewCard, themed.borderColor]}>
-              <Icon name="information-outline" size={20} color={COLORS.status.info} />
-              <Text style={styles.previewText}>
-                All deliveries between{' '}
-                <Text style={styles.previewBold}>{formatDate(startDate)}</Text> and{' '}
-                <Text style={styles.previewBold}>{formatDate(endDate)}</Text> will be paused.
-              </Text>
+            {/* Selected Date Range Summary */}
+            <View style={[styles.dateRangeCard, themed.card, themed.borderColor]}>
+              <View style={styles.dateRangeRow}>
+                <View style={styles.dateRangeItem}>
+                  <View style={[styles.dateRangeIconWrap, { backgroundColor: '#E8F5E9' }]}>
+                    <Icon name="calendar-start" size={20} color={COLORS.primary} />
+                  </View>
+                  <View>
+                    <Text style={[styles.dateRangeLabel, themed.textMuted]}>Start Date</Text>
+                    <Text style={[styles.dateRangeValue, themed.textPrimary]}>{formatDate(startDate)}</Text>
+                  </View>
+                </View>
+                <Icon name="arrow-right" size={18} color={COLORS.text.muted} />
+                <View style={styles.dateRangeItem}>
+                  <View style={[styles.dateRangeIconWrap, { backgroundColor: '#FFEBEE' }]}>
+                    <Icon name="calendar-end" size={20} color={COLORS.status.error} />
+                  </View>
+                  <View>
+                    <Text style={[styles.dateRangeLabel, themed.textMuted]}>End Date</Text>
+                    <Text style={[styles.dateRangeValue, themed.textPrimary]}>{formatDate(endDate)}</Text>
+                  </View>
+                </View>
+              </View>
+              <View style={styles.dateRangeDuration}>
+                <Icon name="clock-outline" size={14} color={COLORS.primary} />
+                <Text style={styles.dateRangeDurationText}>
+                  {daysBetween(startDate, endDate)} {daysBetween(startDate, endDate) === 1 ? 'day' : 'days'} vacation
+                </Text>
+              </View>
             </View>
 
             {/* Affected Subscriptions */}
@@ -578,56 +713,79 @@ const styles = StyleSheet.create({
   },
   sectionTitle: { fontSize: 15, fontWeight: '700', marginBottom: SPACING.md },
 
-  // Date picker
-  datePickerRow: { marginBottom: SPACING.base },
-  dateLabel: { fontSize: 13, fontWeight: '600', marginBottom: SPACING.xs },
-  dateControls: {
+  // Calendar picker
+  fieldTabs: {
     flexDirection: 'row',
-    alignItems: 'center',
     gap: SPACING.sm,
+    marginBottom: SPACING.md,
   },
-  dateBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: RADIUS.md,
-    borderWidth: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: COLORS.background,
-  },
-  dateDisplay: {
+  fieldTab: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    backgroundColor: COLORS.background,
+    justifyContent: 'center',
+    gap: 6,
     paddingVertical: 10,
-    paddingHorizontal: 12,
     borderRadius: RADIUS.md,
+    borderWidth: 1.5,
+    borderColor: COLORS.border,
+    backgroundColor: COLORS.background,
   },
-  dateText: { fontSize: 13, fontWeight: '600' },
-  durationRow: {
+  fieldTabActive: {
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
+  },
+  fieldTabText: { fontSize: 13, fontWeight: '700', color: COLORS.text.primary },
+  fieldTabTextActive: { color: '#FFF' },
+  calMonthNav: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    paddingTop: SPACING.xs,
+    justifyContent: 'space-between',
+    marginBottom: SPACING.sm,
   },
-  durationText: { fontSize: 12, color: COLORS.text.muted, fontWeight: '500' },
-
-  // Preview
-  previewCard: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 10,
-    backgroundColor: '#E3F2FD',
+  calMonthArrow: { width: 32, height: 32, borderRadius: RADIUS.full, alignItems: 'center', justifyContent: 'center' },
+  calMonthLabel: { fontSize: 16, fontWeight: '700' },
+  calDayHeaderRow: { flexDirection: 'row', marginBottom: SPACING.xs },
+  calDayHeaderCell: { flex: 1, alignItems: 'center', paddingVertical: 4 },
+  calDayHeaderText: { fontSize: 11, fontWeight: '600', textTransform: 'uppercase' },
+  calDayRow: { flexDirection: 'row' },
+  calDayCell: { flex: 1, height: 40, alignItems: 'center', justifyContent: 'center', borderRadius: RADIUS.sm, marginVertical: 1 },
+  calDayCellInRange: { backgroundColor: COLORS.primaryLight + '25' },
+  calDayCellStart: { backgroundColor: COLORS.primary, borderRadius: RADIUS.sm },
+  calDayCellEnd: { backgroundColor: COLORS.status.error, borderRadius: RADIUS.sm },
+  calDayCellToday: { borderWidth: 1.5, borderColor: COLORS.status.info },
+  calDayNumber: { fontSize: 13, fontWeight: '500' },
+  calDayPast: { opacity: 0.3 },
+  calDaySelected: { color: '#FFF', fontWeight: '700' },
+  calDayInRangeText: { color: COLORS.primaryDark, fontWeight: '600' },
+  calLegend: { flexDirection: 'row', justifyContent: 'center', gap: 16, marginTop: SPACING.md, paddingTop: SPACING.sm, borderTopWidth: 1, borderTopColor: COLORS.border },
+  calLegendItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  calLegendDot: { width: 10, height: 10, borderRadius: 5 },
+  calLegendText: { fontSize: 10, fontWeight: '600' },
+  // Date range summary
+  dateRangeCard: {
     borderRadius: RADIUS.lg,
     padding: SPACING.base,
     marginBottom: SPACING.base,
     borderWidth: 1,
-    borderColor: '#BBDEFB',
+    ...SHADOW.sm,
   },
-  previewText: { flex: 1, fontSize: 13, color: COLORS.text.secondary, lineHeight: 20 },
-  previewBold: { fontWeight: '700', color: COLORS.text.primary },
+  dateRangeRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  dateRangeItem: { flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 },
+  dateRangeIconWrap: { width: 36, height: 36, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
+  dateRangeLabel: { fontSize: 10, fontWeight: '600' },
+  dateRangeValue: { fontSize: 12, fontWeight: '700', marginTop: 1 },
+  dateRangeDuration: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    marginTop: SPACING.md,
+    paddingTop: SPACING.sm,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.border,
+  },
+  dateRangeDurationText: { fontSize: 13, fontWeight: '700', color: COLORS.primary },
 
   // Subscriptions
   subscriptionItem: {

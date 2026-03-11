@@ -15,6 +15,9 @@ import { ReviewProvider } from '@/context/ReviewContext';
 import { FavoritesProvider } from '@/context/FavoritesContext';
 import { SavedCartProvider } from '@/context/SavedCartContext';
 import { DietProvider } from '@/context/DietContext';
+import { RecentlyViewedProvider } from '@/context/RecentlyViewedContext';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { OfflineBanner } from '@/components/OfflineBanner';
 
 function RootLayoutNav() {
   const { isLoading, isAuthenticated } = useAuth();
@@ -69,7 +72,9 @@ function RootLayoutNav() {
   return (
     <NavThemeProvider value={navTheme}>
       <StatusBar style={isDark ? 'light' : 'dark'} />
-      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }}>
+      <View style={{ flex: 1 }}>
+        <OfflineBanner />
+        <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }}>
         <Stack.Screen name="(auth)" />
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="browse" />
@@ -101,7 +106,10 @@ function RootLayoutNav() {
         <Stack.Screen name="vacation-mode" />
         <Stack.Screen name="order-confirmation" />
         <Stack.Screen name="order-history-calendar" />
+        <Stack.Screen name="order-invoice" />
+        <Stack.Screen name="delivery-tracking" />
       </Stack>
+      </View>
     </NavThemeProvider>
   );
 }
@@ -120,7 +128,11 @@ export default function RootLayout() {
                       <DietProvider>
                         <CartProvider>
                           <OrderProvider>
-                            <RootLayoutNav />
+                            <RecentlyViewedProvider>
+                              <ErrorBoundary>
+                                <RootLayoutNav />
+                              </ErrorBoundary>
+                            </RecentlyViewedProvider>
                           </OrderProvider>
                         </CartProvider>
                       </DietProvider>

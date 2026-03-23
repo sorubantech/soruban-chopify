@@ -67,7 +67,7 @@ export default function OrdersScreen() {
         {item.subscription && (
           <View style={styles.subBadgeRow}>
             <Icon name="autorenew" size={12} color="#F57C00" />
-            <Text style={styles.subBadgeText}>{item.subscription.frequency.charAt(0).toUpperCase() + item.subscription.frequency.slice(1)} Subscription</Text>
+            <Text style={styles.subBadgeText}>{item.subscription.groupCode ? 'Group ' : ''}{item.subscription.frequency.charAt(0).toUpperCase() + item.subscription.frequency.slice(1)} Subscription</Text>
           </View>
         )}
         <View style={styles.orderItems}>
@@ -163,8 +163,13 @@ export default function OrdersScreen() {
                         />
                       </View>
                       <View style={{ flex: 1 }}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                          <Text style={[styles.subCardTitle, themed.textPrimary]}>{freqLabel} Subscription</Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                          <Text style={[styles.subCardTitle, themed.textPrimary]}>{sub.groupCode ? 'Group ' : ''}{freqLabel} Subscription</Text>
+                          {sub.groupCode && (
+                            <View style={{ backgroundColor: '#E3F2FD', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 1 }}>
+                              <Text style={{ fontSize: 8, fontWeight: '800', color: '#1565C0' }}>{sub.groupName || sub.groupCode}</Text>
+                            </View>
+                          )}
                           <View style={[styles.subStatusPill, sub.status === 'paused' && styles.subStatusPaused]}>
                             <Text style={[styles.subStatusText, sub.status === 'paused' && styles.subStatusTextPaused]}>
                               {sub.status === 'active' ? 'Active' : 'Paused'}

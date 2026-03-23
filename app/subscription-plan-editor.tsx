@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, StatusBar,
   Alert, Image, Modal, FlatList,
@@ -98,9 +98,13 @@ export default function SubscriptionPlanEditorScreen() {
   }, [weekDates]);
 
   const [weeklyPlan, setWeeklyPlan] = useState<WeeklyPlan>(() => {
-    if (sub?.weeklyPlan) return sub.weeklyPlan;
-    // If no weekly plan exists, populate all active days from order items
-    const plan = createEmptyPlan();
+    // Check if existing weeklyPlan has any actual items
+    const hasExistingItems = sub?.weeklyPlan && Object.values(sub.weeklyPlan).some(
+      (dp: any) => dp && dp.items && dp.items.length > 0
+    );
+    if (sub?.weeklyPlan && hasExistingItems) return sub.weeklyPlan;
+    // If no weekly plan or plan is empty, populate from order items
+    const plan = sub?.weeklyPlan ? { ...sub.weeklyPlan } : createEmptyPlan();
     if (order?.items && order.items.length > 0) {
       const itemsFromOrder: DayPlanItem[] = order.items.map(oi => ({
         productId: oi.id,
@@ -111,11 +115,31 @@ export default function SubscriptionPlanEditorScreen() {
         specialInstructions: oi.specialInstructions,
       }));
       for (const day of WEEKDAYS) {
-        plan[day] = { ...plan[day], items: itemsFromOrder.map(i => ({ ...i })) };
+        const existing = plan[day] || { day, items: [], isActive: true };
+        // Only populate if the day has no items
+        if (existing.items.length === 0) {
+          plan[day] = { ...existing, items: itemsFromOrder.map(i => ({ ...i })) };
+        }
       }
     }
     return plan;
   });
+
+  // Auto-save if weeklyPlan was empty and we populated it from order items
+  const didAutoSave = useRef(false);
+  useEffect(() => {
+    if (didAutoSave.current || !order) return;
+    const savedPlanEmpty = !sub?.weeklyPlan || !Object.values(sub.weeklyPlan).some(
+      (dp: any) => dp && dp.items && dp.items.length > 0
+    );
+    const currentPlanHasItems = Object.values(weeklyPlan).some(
+      (dp: any) => dp && dp.items && dp.items.length > 0
+    );
+    if (savedPlanEmpty && currentPlanHasItems) {
+      didAutoSave.current = true;
+      updateWeeklyPlan(order.id, weeklyPlan);
+    }
+  }, [order, sub, weeklyPlan, updateWeeklyPlan]);
 
   // Default to today's or tomorrow's day
   const todayIdx = new Date().getDay();
@@ -338,7 +362,7 @@ export default function SubscriptionPlanEditorScreen() {
               <Icon name="arrow-left" size={24} color={themed.colors.text.primary} />
             </TouchableOpacity>
             <Text style={[styles.headerTitle, themed.textPrimary]}>
-              {sub.frequency === 'monthly' ? 'Monthly Plan' : sub.frequency === 'daily' ? 'Daily Plan' : 'Weekly Plan'}
+              {sub.groupCode ? 'Group ' : ''}{sub.frequency === 'monthly' ? 'Monthly Plan' : sub.frequency === 'daily' ? 'Daily Plan' : 'Weekly Plan'}
             </Text>
             <TouchableOpacity onPress={handleSave} disabled={!hasChanges}>
               <Text style={[styles.saveBtn, !hasChanges && styles.saveBtnDisabled]}>Save</Text>

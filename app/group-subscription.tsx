@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, StatusBar,
   TextInput, Alert, Share, Linking, Modal,
@@ -7,9 +7,13 @@ import Icon from '@expo/vector-icons/MaterialCommunityIcons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { COLORS, SPACING, RADIUS, SHADOW } from '@/src/utils/theme';
 import { useThemedStyles } from '@/src/utils/useThemedStyles';
 import { useAuth } from '@/context/AuthContext';
+import { useOrders } from '@/context/OrderContext';
+
+const GROUP_STORAGE_KEY = 'group_subscription_data';
 
 /* ─── Types ─── */
 interface GroupMember {
@@ -48,21 +52,33 @@ export default function GroupSubscriptionScreen() {
   const router = useRouter();
   const themed = useThemedStyles();
   const { user } = useAuth();
+  const { orders, getUpcomingDeliveries } = useOrders();
 
-  const [groupName, setGroupName] = useState('Room 204 Gang');
-  const [groupAddress, setGroupAddress] = useState('Hostel Block B, Room 204, Anna University, Chennai 600025');
-  const [members, setMembers] = useState<GroupMember[]>(DEMO_MEMBERS);
+  const groupSubscriptions = useMemo(() =>
+    orders.filter(o => o.subscription && o.subscription.groupCode && (o.subscription.status === 'active' || o.subscription.status === 'paused')),
+  [orders]);
+
+  const [groupCreated, setGroupCreated] = useState(false);
+  const [groupName, setGroupName] = useState('');
+  const [groupAddress, setGroupAddress] = useState('');
+  const [members, setMembers] = useState<GroupMember[]>([]);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showSplitModal, setShowSplitModal] = useState(false);
   const [showEditGroup, setShowEditGroup] = useState(false);
   const [newName, setNewName] = useState('');
   const [newPhone, setNewPhone] = useState('');
+  const [createGroupName, setCreateGroupName] = useState('');
+  const [createGroupAddress, setCreateGroupAddress] = useState('');
+  const [adminPlan, setAdminPlan] = useState<string | null>(null);
+  const [showPlanPicker, setShowPlanPicker] = useState(false);
+  const [subscriptionPaused, setSubscriptionPaused] = useState(false);
 
   const groupCode = 'GRP' + (user?.phone?.slice(-4) || '1234');
+  const adminPlanObj = PLAN_OPTIONS.find(p => p.id === adminPlan);
   const allMembers = useMemo(() => [
-    { id: 'admin', name: user?.name || 'You', phone: user?.phone || '', status: 'subscribed' as const, plan: 'Budget Daily Pack', share: 75 },
+    { id: 'admin', name: user?.name || 'You', phone: user?.phone || '', status: (adminPlan ? 'subscribed' : 'joined') as 'subscribed' | 'joined' | 'invited', plan: adminPlanObj?.name, share: adminPlanObj?.price || 0 },
     ...members,
-  ], [members, user]);
+  ], [members, user, adminPlan, adminPlanObj]);
   const subscribedCount = allMembers.filter(m => m.status === 'subscribed').length;
   const totalMembers = allMembers.length;
   const discountUnlocked = totalMembers >= 5;
@@ -75,6 +91,38 @@ export default function GroupSubscriptionScreen() {
   const deliveryFee = 30;
   const splitDelivery = Math.ceil(deliveryFee / totalMembers);
   const perPersonSaving = discountUnlocked ? Math.round(totalGroupCost / totalMembers * 0.1) : 0;
+
+  /* ─── Persist group data ─── */
+  const saveGroup = useCallback(async (data: { groupCreated: boolean; groupName: string; groupAddress: string; members: GroupMember[]; adminPlan: string | null; subscriptionPaused: boolean }) => {
+    try { await AsyncStorage.setItem(GROUP_STORAGE_KEY, JSON.stringify(data)); } catch {}
+  }, []);
+
+  // Load saved group on mount
+  useEffect(() => {
+    (async () => {
+      try {
+        const saved = await AsyncStorage.getItem(GROUP_STORAGE_KEY);
+        if (saved) {
+          const data = JSON.parse(saved);
+          if (data.groupCreated) {
+            setGroupCreated(true);
+            setGroupName(data.groupName || '');
+            setGroupAddress(data.groupAddress || '');
+            setMembers(data.members || []);
+            setAdminPlan(data.adminPlan || null);
+            setSubscriptionPaused(data.subscriptionPaused || false);
+          }
+        }
+      } catch {}
+    })();
+  }, []);
+
+  // Auto-save whenever group data changes
+  useEffect(() => {
+    if (groupCreated) {
+      saveGroup({ groupCreated, groupName, groupAddress, members, adminPlan, subscriptionPaused });
+    }
+  }, [groupCreated, groupName, groupAddress, members, adminPlan, subscriptionPaused, saveGroup]);
 
   const handleAddMember = () => {
     if (!newName.trim()) { Alert.alert('Name Required'); return; }
@@ -94,6 +142,15 @@ export default function GroupSubscriptionScreen() {
       { text: 'Cancel', style: 'cancel' },
       { text: 'Remove', style: 'destructive', onPress: () => setMembers(prev => prev.filter(m => m.id !== id)) },
     ]);
+  };
+
+  const handleCreateGroup = () => {
+    if (!createGroupName.trim()) { Alert.alert('Group Name Required', 'Please enter a name for your group.'); return; }
+    if (!createGroupAddress.trim()) { Alert.alert('Address Required', 'Please enter a shared delivery address.'); return; }
+    setGroupName(createGroupName.trim());
+    setGroupAddress(createGroupAddress.trim());
+    setMembers([]);
+    setGroupCreated(true);
   };
 
   const handleShareGroup = async () => {
@@ -130,6 +187,94 @@ export default function GroupSubscriptionScreen() {
         </SafeAreaView>
       </LinearGradient>
 
+      {/* ━━━ Create Group Flow ━━━ */}
+      {!groupCreated && (
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
+          {/* Hero Section */}
+          <View style={styles.createHero}>
+            <LinearGradient colors={['#E3F2FD', '#BBDEFB']} style={styles.createHeroBg}>
+              <Icon name="account-group" size={48} color="#1565C0" />
+              <Text style={[styles.createHeroTitle, themed.textPrimary]}>Create a Group</Text>
+              <Text style={styles.createHeroDesc}>
+                Subscribe together with friends, family, or hostelmates. Share delivery fees and unlock group discounts!
+              </Text>
+            </LinearGradient>
+          </View>
+
+          {/* Benefits Preview */}
+          <View style={[styles.createBenefitsCard, themed.card]}>
+            <Text style={[styles.createBenefitsTitle, themed.textPrimary]}>Why Group Subscription?</Text>
+            {[
+              { icon: 'percent-outline', color: '#E53935', bg: '#FFEBEE', text: 'Get 10% OFF when 5+ members subscribe' },
+              { icon: 'truck-fast-outline', color: '#1565C0', bg: '#E3F2FD', text: 'Split delivery fee among all members' },
+              { icon: 'calendar-check-outline', color: '#2E7D32', bg: '#E8F5E9', text: 'Each member picks their own plan' },
+              { icon: 'whatsapp', color: '#25D366', bg: '#E8F5E9', text: 'Invite friends easily via WhatsApp' },
+            ].map((item, i) => (
+              <View key={i} style={styles.createBenefitRow}>
+                <View style={[styles.createBenefitIcon, { backgroundColor: item.bg }]}>
+                  <Icon name={item.icon as any} size={16} color={item.color} />
+                </View>
+                <Text style={[styles.createBenefitText, themed.textPrimary]}>{item.text}</Text>
+              </View>
+            ))}
+          </View>
+
+          {/* Create Form */}
+          <View style={[styles.createFormCard, themed.card]}>
+            <Text style={[styles.createFormTitle, themed.textPrimary]}>Group Details</Text>
+
+            <Text style={styles.createFormLabel}>Group Name</Text>
+            <TextInput
+              style={[styles.modalInput, themed.inputBg]}
+              placeholder="e.g. Room 204 Gang, Office Lunch Club"
+              placeholderTextColor={COLORS.text.muted}
+              value={createGroupName}
+              onChangeText={setCreateGroupName}
+            />
+
+            <Text style={styles.createFormLabel}>Shared Delivery Address</Text>
+            <TextInput
+              style={[styles.modalInput, themed.inputBg, { minHeight: 70, textAlignVertical: 'top' }]}
+              placeholder="e.g. Hostel Block B, Room 204, Anna University"
+              placeholderTextColor={COLORS.text.muted}
+              value={createGroupAddress}
+              onChangeText={setCreateGroupAddress}
+              multiline
+            />
+
+            <TouchableOpacity style={styles.createGroupBtn} onPress={handleCreateGroup} activeOpacity={0.85}>
+              <LinearGradient colors={['#1565C0', '#1976D2']} style={styles.createGroupBtnGrad}>
+                <Icon name="account-multiple-plus" size={20} color="#FFF" />
+                <Text style={styles.createGroupBtnText}>Create Group</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+          </View>
+
+          {/* How it works */}
+          <View style={[styles.createHowCard, themed.card]}>
+            <Text style={[styles.createFormTitle, themed.textPrimary]}>How It Works</Text>
+            {[
+              { step: '1', title: 'Create your group', desc: 'Name it & add your delivery address' },
+              { step: '2', title: 'Invite members', desc: 'Share your group code via WhatsApp' },
+              { step: '3', title: 'Everyone subscribes', desc: 'Each member picks their preferred plan' },
+              { step: '4', title: 'Save together', desc: '10% OFF when 5+ members join!' },
+            ].map((item, i) => (
+              <View key={i} style={styles.createStepRow}>
+                <View style={styles.createStepCircle}>
+                  <Text style={styles.createStepNum}>{item.step}</Text>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.createStepTitle, themed.textPrimary]}>{item.title}</Text>
+                  <Text style={styles.createStepDesc}>{item.desc}</Text>
+                </View>
+              </View>
+            ))}
+          </View>
+        </ScrollView>
+      )}
+
+      {/* ━━━ Group Management (after creation) ━━━ */}
+      {groupCreated && (
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
 
         {/* Group Info Card */}
@@ -177,6 +322,75 @@ export default function GroupSubscriptionScreen() {
           </View>
         </View>
 
+        {/* ━━━ Your Subscription Status ━━━ */}
+        {/* <View style={[styles.yourSubCard, themed.card]}> */}
+          {/* <View style={styles.yourSubHeader}>
+            <View style={[styles.yourSubIconWrap, { backgroundColor: adminPlanObj ? adminPlanObj.color + '20' : '#E3F2FD' }]}>
+              <Icon name={adminPlanObj ? adminPlanObj.icon as any : 'account-circle-outline'} size={20} color={adminPlanObj?.color || '#1565C0'} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.yourSubTitle, themed.textPrimary]}>Your Subscription</Text>
+              {adminPlanObj ? (
+                <Text style={styles.yourSubPlan}>{adminPlanObj.name} · {'\u20B9'}{adminPlanObj.price}/day {subscriptionPaused ? '(Paused)' : ''}</Text>
+              ) : (
+                <Text style={styles.yourSubPlan}>No plan selected yet</Text>
+              )}
+            </View>
+            {adminPlanObj && (
+              <View style={[styles.statusBadge, { backgroundColor: subscriptionPaused ? '#FFF3E0' : '#E8F5E9' }]}>
+                <Icon name={subscriptionPaused ? 'pause-circle' : 'check-circle'} size={10} color={subscriptionPaused ? '#F57C00' : '#2E7D32'} />
+                <Text style={[styles.statusBadgeText, { color: subscriptionPaused ? '#F57C00' : '#2E7D32' }]}>{subscriptionPaused ? 'Paused' : 'Active'}</Text>
+              </View>
+            )}
+          </View> */}
+
+          {/* <View style={styles.yourSubActions}>
+            {!adminPlanObj ? (
+              <TouchableOpacity style={styles.yourSubActionBtn} onPress={() => setShowPlanPicker(true)} activeOpacity={0.85}>
+                <LinearGradient colors={['#1565C0', '#1976D2']} style={styles.yourSubActionBtnGrad}>
+                  <Icon name="plus-circle-outline" size={16} color="#FFF" />
+                  <Text style={styles.yourSubActionBtnText}>Choose a Plan</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+            ) : (
+              <>
+                <TouchableOpacity
+                  style={[styles.yourSubManageBtn, { borderColor: '#1565C0' }]}
+                  onPress={() => setShowPlanPicker(true)}
+                  activeOpacity={0.8}
+                >
+                  <Icon name="swap-horizontal" size={14} color="#1565C0" />
+                  <Text style={[styles.yourSubManageBtnText, { color: '#1565C0' }]}>Change Plan</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.yourSubManageBtn, { borderColor: subscriptionPaused ? '#2E7D32' : '#F57C00' }]}
+                  onPress={() => {
+                    setSubscriptionPaused(!subscriptionPaused);
+                    Alert.alert(subscriptionPaused ? 'Resumed' : 'Paused', subscriptionPaused ? 'Your subscription is now active.' : 'Your subscription is paused. You can resume anytime.');
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <Icon name={subscriptionPaused ? 'play-circle-outline' : 'pause-circle-outline'} size={14} color={subscriptionPaused ? '#2E7D32' : '#F57C00'} />
+                  <Text style={[styles.yourSubManageBtnText, { color: subscriptionPaused ? '#2E7D32' : '#F57C00' }]}>{subscriptionPaused ? 'Resume' : 'Pause'}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.yourSubManageBtn, { borderColor: '#E53935' }]}
+                  onPress={() => {
+                    Alert.alert('Cancel Subscription', 'Are you sure you want to cancel your plan?', [
+                      { text: 'No', style: 'cancel' },
+                      { text: 'Yes, Cancel', style: 'destructive', onPress: () => { setAdminPlan(null); setSubscriptionPaused(false); } },
+                    ]);
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <Icon name="close-circle-outline" size={14} color="#E53935" />
+                  <Text style={[styles.yourSubManageBtnText, { color: '#E53935' }]}>Cancel</Text>
+                </TouchableOpacity>
+              </>
+            )}
+          </View> */}
+        {/* </View> */}
+
         {/* Members */}
         <View style={styles.sectionHeader}>
           <Text style={[styles.sectionTitle, themed.textPrimary]}>Members ({totalMembers})</Text>
@@ -219,6 +433,142 @@ export default function GroupSubscriptionScreen() {
             </View>
           );
         })}
+
+        {/* My Group Subscriptions — with upcoming deliveries */}
+        {groupSubscriptions.length > 0 && (
+          <>
+            <View style={styles.sectionHeader}>
+              <Text style={[styles.sectionTitle, themed.textPrimary]}>My Group Subscriptions</Text>
+              <View style={styles.groupSubCountBadge}>
+                <Text style={styles.groupSubCountText}>{groupSubscriptions.length}</Text>
+              </View>
+            </View>
+
+            {groupSubscriptions.map(order => {
+              const sub = order.subscription!;
+              const freqLabel = sub.frequency.charAt(0).toUpperCase() + sub.frequency.slice(1);
+              const upcoming = getUpcomingDeliveries(order.id, 7);
+              const nextDelivery = upcoming.find(d => !d.isSkipped);
+              const skippedCount = upcoming.filter(d => d.isSkipped).length;
+              const scheduleDetail = sub.frequency === 'weekly'
+                ? `Every ${sub.weeklyDay || 'weekday'}`
+                : sub.frequency === 'monthly'
+                ? `On ${sub.monthlyDates?.join(', ') || 'weekdays'}`
+                : 'Every day';
+
+              return (
+                <View key={order.id} style={[styles.groupSubCard, themed.card]}>
+                  {/* Card Header */}
+                  <View style={styles.groupSubCardHeader}>
+                    <View style={[styles.groupSubIcon, { backgroundColor: sub.frequency === 'weekly' ? '#E8F5E9' : sub.frequency === 'monthly' ? '#E3F2FD' : '#FFF3E0' }]}>
+                      <Icon
+                        name={sub.frequency === 'daily' ? 'calendar-today' : sub.frequency === 'weekly' ? 'calendar-week' : 'calendar-month'}
+                        size={22}
+                        color={sub.frequency === 'weekly' ? '#2E7D32' : sub.frequency === 'monthly' ? '#1565C0' : '#F57C00'}
+                      />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                        <Text style={[styles.groupSubTitle, themed.textPrimary]}>Group {freqLabel} Subscription</Text>
+                        {sub.status === 'paused' ? (
+                          <View style={styles.groupSubPausedBadge}><Text style={styles.groupSubPausedText}>Paused</Text></View>
+                        ) : (
+                          <View style={styles.groupSubActiveBadge}><Text style={styles.groupSubActiveText}>Active</Text></View>
+                        )}
+                      </View>
+                      <Text style={styles.groupSubSchedule}>{scheduleDetail} at {sub.preferredTime}</Text>
+                      <Text style={styles.groupSubItems}>{order.items.length} items · {'\u20B9'}{order.total}/delivery</Text>
+                    </View>
+                  </View>
+
+                  {/* Next Delivery */}
+                  <View style={styles.groupSubNextRow}>
+                    {nextDelivery ? (
+                      <View style={styles.groupSubNextInfo}>
+                        <Icon name="truck-delivery-outline" size={14} color={COLORS.primary} />
+                        <Text style={styles.groupSubNextText}>
+                          Next: {nextDelivery.dayLabel}, {new Date(nextDelivery.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                        </Text>
+                      </View>
+                    ) : (
+                      <View style={styles.groupSubNextInfo}>
+                        <Icon name="calendar-blank" size={14} color={COLORS.text.muted} />
+                        <Text style={[styles.groupSubNextText, { color: COLORS.text.muted }]}>No upcoming deliveries</Text>
+                      </View>
+                    )}
+                    <View style={styles.groupSubStats}>
+                      <Text style={styles.groupSubStat}>{upcoming.filter(d => !d.isSkipped).length} upcoming</Text>
+                      {skippedCount > 0 && <Text style={styles.groupSubStatSkipped}>{skippedCount} skipped</Text>}
+                    </View>
+                  </View>
+
+                  {/* Upcoming Deliveries List */}
+                  {upcoming.length > 0 && (
+                    <View style={styles.groupSubUpcoming}>
+                      <Text style={[styles.groupSubUpcomingTitle, themed.textPrimary]}>Upcoming Deliveries</Text>
+                      {upcoming.slice(0, 5).map((delivery, i) => (
+                        <View key={delivery.date} style={[styles.groupSubDeliveryRow, i < Math.min(upcoming.length, 5) - 1 && styles.groupSubDeliveryBorder]}>
+                          <View style={[styles.groupSubDeliveryDate, delivery.isSkipped && styles.groupSubDeliveryDateSkipped]}>
+                            <Text style={[styles.groupSubDeliveryDay, delivery.isSkipped && { color: COLORS.text.muted }]}>
+                              {new Date(delivery.date).getDate()}
+                            </Text>
+                            <Text style={[styles.groupSubDeliveryMonth, delivery.isSkipped && { color: COLORS.text.muted }]}>
+                              {new Date(delivery.date).toLocaleDateString('en-IN', { month: 'short' })}
+                            </Text>
+                          </View>
+                          <View style={{ flex: 1 }}>
+                            <Text style={[styles.groupSubDeliveryLabel, delivery.isSkipped && { color: COLORS.text.muted, textDecorationLine: 'line-through' }]}>
+                              {delivery.dayLabel}
+                            </Text>
+                            <Text style={styles.groupSubDeliveryTime}>{sub.preferredTime}</Text>
+                          </View>
+                          {delivery.isSkipped ? (
+                            <View style={styles.groupSubSkippedBadge}>
+                              <Icon name={delivery.isVacation ? 'airplane' : 'close-circle'} size={12} color={delivery.isVacation ? '#607D8B' : COLORS.status.error} />
+                              <Text style={[styles.groupSubSkippedText, delivery.isVacation && { color: '#607D8B' }]}>
+                                {delivery.isVacation ? 'Vacation' : 'Skipped'}
+                              </Text>
+                            </View>
+                          ) : (
+                            <View style={styles.groupSubScheduledBadge}>
+                              <Icon name="check-circle" size={12} color={COLORS.primary} />
+                              <Text style={styles.groupSubScheduledText}>Scheduled</Text>
+                            </View>
+                          )}
+                        </View>
+                      ))}
+                    </View>
+                  )}
+
+                  {/* Quick Actions */}
+                  <View style={styles.groupSubActions}>
+                    <TouchableOpacity
+                      style={styles.groupSubManageBtn}
+                      onPress={() => router.push({ pathname: '/subscription-manage' as any, params: { id: order.id } })}
+                    >
+                      <Icon name="cog-outline" size={14} color="#FFF" />
+                      <Text style={styles.groupSubManageBtnText}>Manage</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.groupSubCalendarBtn}
+                      onPress={() => router.push({ pathname: '/subscription-calendar' as any, params: { orderId: order.id } })}
+                    >
+                      <Icon name="calendar-month" size={14} color={COLORS.primary} />
+                      <Text style={styles.groupSubCalendarBtnText}>Calendar</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.groupSubCalendarBtn}
+                      onPress={() => router.push({ pathname: '/subscription-plan-editor' as any, params: { id: order.id } })}
+                    >
+                      <Icon name="pencil-outline" size={14} color={COLORS.primary} />
+                      <Text style={styles.groupSubCalendarBtnText}>Edit Plan</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              );
+            })}
+          </>
+        )}
 
         {/* Split Payment Summary */}
         <View style={styles.sectionHeader}>
@@ -278,10 +628,24 @@ export default function GroupSubscriptionScreen() {
         </View>
 
         {/* CTA */}
-        <TouchableOpacity style={styles.subscribeCta} onPress={() => router.push('/subscription-setup' as any)} activeOpacity={0.85}>
+        <TouchableOpacity
+          style={styles.subscribeCta}
+          onPress={() => {
+            if (adminPlanObj) {
+              // Plan already selected — go to subscription setup for delivery schedule
+              router.push({ pathname: '/subscription-setup', params: { planId: adminPlan, groupCode, groupName } } as any);
+            } else {
+              // No plan yet — open plan picker first
+              setShowPlanPicker(true);
+            }
+          }}
+          activeOpacity={0.85}
+        >
           <LinearGradient colors={['#1565C0', '#1976D2']} style={styles.subscribeCtaGrad}>
-            <Icon name="cart-plus" size={20} color="#FFF" />
-            <Text style={styles.subscribeCtaText}>Choose Your Plan & Subscribe</Text>
+            <Icon name={adminPlanObj ? 'calendar-clock' : 'cart-plus'} size={20} color="#FFF" />
+            <Text style={styles.subscribeCtaText}>
+              {adminPlanObj ? 'Set Up Delivery Schedule' : 'Choose Your Plan & Subscribe'}
+            </Text>
           </LinearGradient>
         </TouchableOpacity>
 
@@ -292,6 +656,7 @@ export default function GroupSubscriptionScreen() {
 
         <View style={{ height: 30 }} />
       </ScrollView>
+      )}
 
       {/* ━━━ Add Member Modal ━━━ */}
       <Modal visible={showAddModal} transparent animationType="slide" onRequestClose={() => setShowAddModal(false)}>
@@ -406,6 +771,54 @@ export default function GroupSubscriptionScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* ━━━ Plan Picker Modal ━━━ */}
+      <Modal visible={showPlanPicker} transparent animationType="slide" onRequestClose={() => setShowPlanPicker(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modal, themed.card]}>
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, themed.textPrimary]}>{adminPlan ? 'Change Plan' : 'Choose Your Plan'}</Text>
+              <TouchableOpacity onPress={() => setShowPlanPicker(false)}>
+                <Icon name="close" size={22} color={COLORS.text.muted} />
+              </TouchableOpacity>
+            </View>
+
+            {PLAN_OPTIONS.map(plan => {
+              const isSelected = adminPlan === plan.id;
+              return (
+                <TouchableOpacity
+                  key={plan.id}
+                  style={[styles.planOptionCard, isSelected && { borderColor: plan.color, borderWidth: 2 }]}
+                  onPress={() => {
+                    setAdminPlan(plan.id);
+                    setSubscriptionPaused(false);
+                    setShowPlanPicker(false);
+                    Alert.alert('Plan Selected', `You've subscribed to ${plan.name}!`);
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <View style={[styles.planOptionIcon, { backgroundColor: plan.color + '20' }]}>
+                    <Icon name={plan.icon as any} size={18} color={plan.color} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.planOptionName, themed.textPrimary]}>{plan.name}</Text>
+                    <Text style={[styles.planOptionPrice, { color: plan.color }]}>{'\u20B9'}{plan.price}/day</Text>
+                  </View>
+                  {isSelected && <Icon name="check-circle" size={20} color={plan.color} />}
+                </TouchableOpacity>
+              );
+            })}
+
+            <TouchableOpacity
+              style={[styles.modalSecondaryBtn, { marginTop: 8, borderColor: '#1565C0' }]}
+              onPress={() => { setShowPlanPicker(false); router.push('/subscription-setup' as any); }}
+            >
+              <Icon name="cog-outline" size={16} color="#1565C0" />
+              <Text style={[styles.modalSecondaryBtnText, { color: '#1565C0' }]}>Customize with Subscription Setup</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -490,7 +903,7 @@ const styles = StyleSheet.create({
   modalInput: { borderWidth: 1, borderColor: '#E0E0E0', borderRadius: RADIUS.md, paddingHorizontal: 14, paddingVertical: 12, fontSize: 14, marginBottom: 10 },
   modalPrimaryBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: '#1565C0', borderRadius: RADIUS.lg, paddingVertical: 14 },
   modalPrimaryBtnText: { fontSize: 14, fontWeight: '700', color: '#FFF' },
-  modalSecondaryBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, borderWidth: 1.5, borderColor: '#25D366', borderRadius: RADIUS.lg, paddingVertical: 14 },
+  modalSecondaryBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, borderWidth: 1.5, borderColor: '#25D366', borderRadius: RADIUS.lg, paddingVertical: 14 },
   modalSecondaryBtnText: { fontSize: 13, fontWeight: '700', color: '#25D366' },
 
   // Split Detail Modal
@@ -504,4 +917,85 @@ const styles = StyleSheet.create({
   splitDetailTotal: { backgroundColor: '#E3F2FD', borderRadius: RADIUS.md, padding: 12, marginVertical: 12, flexDirection: 'row', justifyContent: 'space-between' },
   splitDetailTotalLabel: { fontSize: 13, fontWeight: '700', color: '#1565C0' },
   splitDetailTotalValue: { fontSize: 13, fontWeight: '800', color: '#1565C0' },
+
+  // Create Group
+  createHero: { marginBottom: SPACING.md },
+  createHeroBg: { borderRadius: RADIUS.xl, padding: SPACING.lg, alignItems: 'center' as const, gap: 10 },
+  createHeroTitle: { fontSize: 22, fontWeight: '900' },
+  createHeroDesc: { fontSize: 13, color: COLORS.text.secondary, textAlign: 'center' as const, lineHeight: 19 },
+  createBenefitsCard: { borderRadius: RADIUS.lg, padding: SPACING.base, marginBottom: SPACING.md, ...SHADOW.sm },
+  createBenefitsTitle: { fontSize: 15, fontWeight: '800', marginBottom: 12 },
+  createBenefitRow: { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 10, marginBottom: 10 },
+  createBenefitIcon: { width: 32, height: 32, borderRadius: 10, justifyContent: 'center' as const, alignItems: 'center' as const },
+  createBenefitText: { flex: 1, fontSize: 12, fontWeight: '600' },
+  createFormCard: { borderRadius: RADIUS.lg, padding: SPACING.base, marginBottom: SPACING.md, ...SHADOW.sm },
+  createFormTitle: { fontSize: 15, fontWeight: '800', marginBottom: 12 },
+  createFormLabel: { fontSize: 12, fontWeight: '700', color: COLORS.text.muted, marginBottom: 4, marginTop: 4 },
+  createGroupBtn: { borderRadius: RADIUS.lg, overflow: 'hidden' as const, marginTop: SPACING.sm },
+  createGroupBtnGrad: { flexDirection: 'row' as const, alignItems: 'center' as const, justifyContent: 'center' as const, gap: 8, paddingVertical: 16 },
+  createGroupBtnText: { fontSize: 15, fontWeight: '800', color: '#FFF' },
+  createHowCard: { borderRadius: RADIUS.lg, padding: SPACING.base, marginBottom: SPACING.md, ...SHADOW.sm },
+  createStepRow: { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 12, marginBottom: 12 },
+  createStepCircle: { width: 30, height: 30, borderRadius: 15, backgroundColor: '#1565C0', justifyContent: 'center' as const, alignItems: 'center' as const },
+  createStepNum: { fontSize: 14, fontWeight: '800', color: '#FFF' },
+  createStepTitle: { fontSize: 13, fontWeight: '700' },
+  createStepDesc: { fontSize: 11, color: COLORS.text.muted, marginTop: 1 },
+
+  // Your Subscription
+  yourSubCard: { borderRadius: RADIUS.lg, padding: SPACING.base, marginBottom: SPACING.md, ...SHADOW.sm },
+  yourSubHeader: { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 12, marginBottom: 12 },
+  yourSubIconWrap: { width: 40, height: 40, borderRadius: 12, justifyContent: 'center' as const, alignItems: 'center' as const },
+  yourSubTitle: { fontSize: 14, fontWeight: '800' },
+  yourSubPlan: { fontSize: 11, color: COLORS.text.muted, marginTop: 2 },
+  yourSubActions: { flexDirection: 'row' as const, flexWrap: 'wrap' as const, gap: 8 },
+  yourSubActionBtn: { flex: 1, borderRadius: RADIUS.lg, overflow: 'hidden' as const },
+  yourSubActionBtnGrad: { flexDirection: 'row' as const, alignItems: 'center' as const, justifyContent: 'center' as const, gap: 6, paddingVertical: 12 },
+  yourSubActionBtnText: { fontSize: 13, fontWeight: '700', color: '#FFF' },
+  yourSubManageBtn: { flexDirection: 'row' as const, alignItems: 'center' as const, justifyContent: 'center' as const, gap: 5, borderWidth: 1.5, borderRadius: RADIUS.md, paddingHorizontal: 12, paddingVertical: 8 },
+  yourSubManageBtnText: { fontSize: 11, fontWeight: '700' },
+
+  // Plan Picker
+  planOptionCard: { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 12, padding: 14, borderRadius: RADIUS.lg, borderWidth: 1, borderColor: '#E0E0E0', marginBottom: 8 },
+  planOptionIcon: { width: 36, height: 36, borderRadius: 10, justifyContent: 'center' as const, alignItems: 'center' as const },
+  planOptionName: { fontSize: 13, fontWeight: '700' },
+  planOptionPrice: { fontSize: 12, fontWeight: '800', marginTop: 2 },
+
+  // Group Subscriptions Section
+  groupSubCountBadge: { backgroundColor: '#E8F5E9', borderRadius: RADIUS.full, paddingHorizontal: 10, paddingVertical: 3 },
+  groupSubCountText: { fontSize: 11, fontWeight: '800', color: '#2E7D32' },
+  groupSubCard: { borderRadius: RADIUS.lg, padding: SPACING.base, marginBottom: SPACING.sm, ...SHADOW.sm },
+  groupSubCardHeader: { flexDirection: 'row' as const, alignItems: 'flex-start' as const, gap: 12, marginBottom: 12 },
+  groupSubIcon: { width: 44, height: 44, borderRadius: 12, justifyContent: 'center' as const, alignItems: 'center' as const },
+  groupSubTitle: { fontSize: 14, fontWeight: '800' },
+  groupSubActiveBadge: { backgroundColor: '#E8F5E9', borderRadius: RADIUS.sm, paddingHorizontal: 6, paddingVertical: 2 },
+  groupSubActiveText: { fontSize: 9, fontWeight: '700', color: '#4CAF50' },
+  groupSubPausedBadge: { backgroundColor: '#FFF8E1', borderRadius: RADIUS.sm, paddingHorizontal: 6, paddingVertical: 2 },
+  groupSubPausedText: { fontSize: 9, fontWeight: '700', color: '#F57C00' },
+  groupSubSchedule: { fontSize: 11, color: COLORS.text.secondary, marginTop: 2 },
+  groupSubItems: { fontSize: 11, color: COLORS.text.muted, marginTop: 1 },
+  groupSubNextRow: { flexDirection: 'row' as const, alignItems: 'center' as const, justifyContent: 'space-between' as const, backgroundColor: '#F5F5F5', borderRadius: RADIUS.md, padding: 10, marginBottom: 12 },
+  groupSubNextInfo: { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 6 },
+  groupSubNextText: { fontSize: 12, fontWeight: '600', color: COLORS.text.primary },
+  groupSubStats: { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 8 },
+  groupSubStat: { fontSize: 10, fontWeight: '700', color: COLORS.primary },
+  groupSubStatSkipped: { fontSize: 10, fontWeight: '700', color: COLORS.status.error },
+  groupSubUpcoming: { marginBottom: 12 },
+  groupSubUpcomingTitle: { fontSize: 12, fontWeight: '700', marginBottom: 8 },
+  groupSubDeliveryRow: { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 10, paddingVertical: 8 },
+  groupSubDeliveryBorder: { borderBottomWidth: 1, borderBottomColor: '#F0F0F0' },
+  groupSubDeliveryDate: { width: 40, height: 40, borderRadius: 10, backgroundColor: '#E8F5E9', justifyContent: 'center' as const, alignItems: 'center' as const },
+  groupSubDeliveryDateSkipped: { backgroundColor: '#F5F5F5' },
+  groupSubDeliveryDay: { fontSize: 15, fontWeight: '800', color: COLORS.primary },
+  groupSubDeliveryMonth: { fontSize: 9, fontWeight: '600', color: COLORS.text.muted },
+  groupSubDeliveryLabel: { fontSize: 12, fontWeight: '600', color: COLORS.text.primary },
+  groupSubDeliveryTime: { fontSize: 10, color: COLORS.text.muted, marginTop: 1 },
+  groupSubSkippedBadge: { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 4, backgroundColor: '#FFEBEE', borderRadius: RADIUS.sm, paddingHorizontal: 8, paddingVertical: 3 },
+  groupSubSkippedText: { fontSize: 9, fontWeight: '700', color: COLORS.status.error },
+  groupSubScheduledBadge: { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 4, backgroundColor: '#E8F5E9', borderRadius: RADIUS.sm, paddingHorizontal: 8, paddingVertical: 3 },
+  groupSubScheduledText: { fontSize: 9, fontWeight: '700', color: COLORS.primary },
+  groupSubActions: { flexDirection: 'row' as const, gap: 8 },
+  groupSubManageBtn: { flex: 1, flexDirection: 'row' as const, alignItems: 'center' as const, justifyContent: 'center' as const, gap: 6, backgroundColor: '#1565C0', borderRadius: RADIUS.md, paddingVertical: 10 },
+  groupSubManageBtnText: { fontSize: 12, fontWeight: '700', color: '#FFF' },
+  groupSubCalendarBtn: { flex: 1, flexDirection: 'row' as const, alignItems: 'center' as const, justifyContent: 'center' as const, gap: 6, borderWidth: 1.5, borderColor: COLORS.primary, borderRadius: RADIUS.md, paddingVertical: 10 },
+  groupSubCalendarBtnText: { fontSize: 12, fontWeight: '700', color: COLORS.primary },
 });

@@ -31,7 +31,7 @@ export default function SubscriptionManageScreen() {
 
   const upcoming = useMemo(() => {
     if (!order) return [];
-    return getUpcomingDeliveries(order.id, 21);
+    return getUpcomingDeliveries(order.id, 30);
   }, [order, getUpcomingDeliveries]);
 
   const skippedCount = useMemo(() =>
@@ -125,7 +125,8 @@ export default function SubscriptionManageScreen() {
     );
   }
 
-  const freqLabel = sub.frequency.charAt(0).toUpperCase() + sub.frequency.slice(1);
+  const isGroup = !!sub.groupCode;
+  const freqLabel = (isGroup ? 'Group ' : '') + sub.frequency.charAt(0).toUpperCase() + sub.frequency.slice(1);
   const scheduleDetail = sub.frequency === 'weekly'
     ? sub.weeklyDay ? `Every ${sub.weeklyDay}` : `${activeCount} days per week`
     : sub.frequency === 'monthly'
@@ -143,7 +144,7 @@ export default function SubscriptionManageScreen() {
             <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
               <Icon name="arrow-left" size={24} color={themed.colors.text.primary} />
             </TouchableOpacity>
-            <Text style={[styles.headerTitle, themed.textPrimary]}>Manage Subscription</Text>
+            <Text style={[styles.headerTitle, themed.textPrimary]}>{isGroup ? 'Manage Group Subscription' : 'Manage Subscription'}</Text>
             <View style={{ width: 40 }} />
           </View>
         </SafeAreaView>
@@ -188,6 +189,26 @@ export default function SubscriptionManageScreen() {
             </View>
           </LinearGradient>
         </View>
+
+        {/* Group Info Banner */}
+        {isGroup && (
+          <View style={styles.groupBanner}>
+            <View style={styles.groupBannerIconWrap}>
+              <Icon name="account-group" size={22} color="#1565C0" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.groupBannerTitle}>{sub.groupName || 'Group Subscription'}</Text>
+              <Text style={styles.groupBannerCode}>Code: {sub.groupCode}</Text>
+            </View>
+            <TouchableOpacity
+              style={styles.groupBannerBtn}
+              onPress={() => router.push('/group-subscription' as any)}
+            >
+              <Text style={styles.groupBannerBtnText}>View Group</Text>
+              <Icon name="chevron-right" size={14} color="#1565C0" />
+            </TouchableOpacity>
+          </View>
+        )}
 
         {/* Pause Duration Banner */}
         {sub.status === 'paused' && sub.pausedFrom && sub.pausedUntil && (
@@ -395,8 +416,21 @@ export default function SubscriptionManageScreen() {
             <View style={styles.emptyState}>
               <Icon name="calendar-blank" size={40} color={COLORS.text.muted} />
               <Text style={styles.emptyText}>
-                {sub.status === 'paused' ? 'Subscription is paused. Resume to see upcoming deliveries.' : 'No upcoming deliveries found.'}
+                {sub.status === 'paused'
+                  ? 'Subscription is paused. Resume to see upcoming deliveries.'
+                  : sub.frequency === 'weekly' && sub.weeklyDay
+                  ? `No deliveries in the next 30 days. Your ${isGroup ? 'group ' : ''}delivery day is ${sub.weeklyDay}.`
+                  : 'No upcoming deliveries found. Try editing your plan to add delivery days.'}
               </Text>
+              {sub.status !== 'paused' && (
+                <TouchableOpacity
+                  style={styles.emptyActionBtn}
+                  onPress={() => router.push({ pathname: '/subscription-plan-editor', params: { id } } as any)}
+                >
+                  <Icon name="calendar-edit" size={16} color={COLORS.primary} />
+                  <Text style={styles.emptyActionText}>Edit Delivery Plan</Text>
+                </TouchableOpacity>
+              )}
             </View>
           )}
 
@@ -627,6 +661,17 @@ const styles = StyleSheet.create({
   overviewStatValue: { fontSize: 16, fontWeight: '800', color: '#FFF' },
   overviewStatLabel: { fontSize: 10, color: 'rgba(255,255,255,0.75)', marginTop: 2 },
   overviewStatDivider: { width: 1, backgroundColor: 'rgba(255,255,255,0.2)' },
+  // Group banner
+  groupBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    backgroundColor: '#E3F2FD', borderRadius: RADIUS.lg, padding: SPACING.base,
+    marginBottom: SPACING.md, borderWidth: 1, borderColor: '#BBDEFB',
+  },
+  groupBannerIconWrap: { width: 40, height: 40, borderRadius: 10, backgroundColor: '#BBDEFB', justifyContent: 'center', alignItems: 'center' },
+  groupBannerTitle: { fontSize: 14, fontWeight: '700', color: '#1565C0' },
+  groupBannerCode: { fontSize: 11, color: '#1976D2', marginTop: 2 },
+  groupBannerBtn: { flexDirection: 'row', alignItems: 'center', gap: 2 },
+  groupBannerBtnText: { fontSize: 12, fontWeight: '700', color: '#1565C0' },
   // Pause banner
   pauseBanner: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
@@ -655,7 +700,9 @@ const styles = StyleSheet.create({
   countBadgeText: { fontSize: 10, fontWeight: '700', color: COLORS.primary },
   // Empty
   emptyState: { alignItems: 'center', paddingVertical: SPACING.xl },
-  emptyText: { fontSize: 13, color: COLORS.text.muted, textAlign: 'center', marginTop: SPACING.sm },
+  emptyText: { fontSize: 13, color: COLORS.text.muted, textAlign: 'center', marginTop: SPACING.sm, lineHeight: 19 },
+  emptyActionBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 12, borderWidth: 1.5, borderColor: COLORS.primary, borderRadius: RADIUS.full, paddingHorizontal: 16, paddingVertical: 8 },
+  emptyActionText: { fontSize: 12, fontWeight: '700', color: COLORS.primary },
   // Delivery rows
   deliveryRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12 },
   deliveryRowBorder: { borderBottomWidth: 1, borderBottomColor: COLORS.border },

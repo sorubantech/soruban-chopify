@@ -5,7 +5,7 @@ import {
 } from 'react-native';
 import Icon from '@expo/vector-icons/MaterialCommunityIcons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS, SPACING, RADIUS, SHADOW } from '@/src/utils/theme';
 import { useThemedStyles } from '@/src/utils/useThemedStyles';
@@ -98,6 +98,7 @@ const MONTH_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Se
 /* ─── Screen ─── */
 export default function SubscriptionSetupScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ planId?: string; groupCode?: string; groupName?: string }>();
   const themed = useThemedStyles();
   const { addToCart, cartItems } = useCart();
   const { gender, lifestyle, healthGoals, profileComplete } = useDiet();
@@ -144,6 +145,17 @@ export default function SubscriptionSetupScreen() {
     return plans.filter(p => p.category === planCategory);
   }, [frequency, planCategory, gender, lifestyle, healthGoals]);
   const [showPlanDetail, setShowPlanDetail] = useState(false);
+
+  /* Auto-select plan when navigated with planId param */
+  useEffect(() => {
+    if (params.planId) {
+      const plan = SPECIAL_PLANS.find(p => p.id === params.planId);
+      if (plan) {
+        setSelectedPlan(plan);
+        setShowPlanDetail(true);
+      }
+    }
+  }, [params.planId]);
 
   const today = useMemo(() => new Date(), []);
   const [calYear, setCalYear] = useState(today.getFullYear());
@@ -618,9 +630,10 @@ export default function SubscriptionSetupScreen() {
         subDeliveryDates: deliveryDates,
         subDaysCount: String(deliveryDaysCount),
         subTimeSlot: timeSlot,
+        ...(params.groupCode ? { groupCode: params.groupCode, groupName: params.groupName } : {}),
       },
     } as any);
-  }, [allDatesWithItems, dayItems, frequency, addToCart, router]);
+  }, [allDatesWithItems, dayItems, frequency, addToCart, router, params.groupCode, params.groupName]);
 
   /* ─── Render ─── */
   return (
@@ -634,7 +647,7 @@ export default function SubscriptionSetupScreen() {
             <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
               <Icon name="arrow-left" size={24} color={themed.colors.text.primary} />
             </TouchableOpacity>
-            <Text style={[styles.headerTitle, themed.textPrimary]}>Subscription Setup</Text>
+            <Text style={[styles.headerTitle, themed.textPrimary]}>{params.groupCode ? 'Group ' : ''}Subscription Setup</Text>
             <View style={{ width: 40 }} />
           </View>
         </SafeAreaView>
@@ -1278,12 +1291,18 @@ export default function SubscriptionSetupScreen() {
         {/* ━━━ STEP 3: Review ━━━ */}
         {step === 3 && (
           <View>
-            <Text style={[styles.sectionTitle, themed.textPrimary]}>Review Your Subscription</Text>
+            <Text style={[styles.sectionTitle, themed.textPrimary]}>Review Your {params.groupCode ? 'Group ' : ''}Subscription</Text>
 
             <LinearGradient colors={COLORS.gradient.primary} style={styles.reviewBanner}>
+              {params.groupCode && (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4, marginBottom: 8, alignSelf: 'center' }}>
+                  <Icon name="account-group" size={14} color="#FFF" />
+                  <Text style={{ fontSize: 11, fontWeight: '700', color: '#FFF' }}>Group: {params.groupName || params.groupCode}</Text>
+                </View>
+              )}
               <View style={styles.reviewRow}>
                 <View style={styles.reviewItem}>
-                  <Text style={styles.reviewValue}>{frequency}</Text>
+                  <Text style={styles.reviewValue}>{params.groupCode ? 'Group ' : ''}{frequency}</Text>
                   <Text style={styles.reviewLabel}>Frequency</Text>
                 </View>
                 <View style={styles.reviewDivider} />

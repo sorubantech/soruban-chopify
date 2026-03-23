@@ -161,6 +161,8 @@ export default function CheckoutScreen() {
     subMonthlyDates?: string;
     selectedDates?: string;
     subTimeSlot?: string;
+    groupCode?: string;
+    groupName?: string;
   }>();
   const themed = useThemedStyles();
   const { cartItems, getSubtotal, getCuttingTotal, clearCart } = useCart();
@@ -371,9 +373,9 @@ export default function CheckoutScreen() {
     const base = deliveryMode === 'now'
       ? (deliverySlotsData.find(s => s.id === selectedSlot)?.label || 'ASAP')
       : `${SCHEDULE_DATES.find(d => d.key === scheduleDate)?.label || ''} ${TIME_SLOTS.find(t => t.id === scheduleTime)?.label || ''}`;
-    if (orderType === 'subscribe') return `${base} (${subFrequency.charAt(0).toUpperCase() + subFrequency.slice(1)} subscription)`;
+    if (orderType === 'subscribe') return `${base} (${params.groupCode ? 'Group ' : ''}${subFrequency.charAt(0).toUpperCase() + subFrequency.slice(1)} subscription)`;
     return base;
-  }, [deliveryMode, selectedSlot, scheduleDate, scheduleTime, orderType, subFrequency]);
+  }, [deliveryMode, selectedSlot, scheduleDate, scheduleTime, orderType, subFrequency, params.groupCode]);
 
   const handlePlaceOrder = async () => {
     if (cartItems.length === 0) return;
@@ -408,6 +410,7 @@ export default function CheckoutScreen() {
         skippedDeliveries: [],
         cutoffHours: 10,
         weeklyPlan: orderType === 'subscribe' ? weeklyPlan : undefined,
+        ...(params.groupCode ? { groupCode: params.groupCode, groupName: params.groupName } : {}),
       } : undefined;
       const order = await createOrder({
         items: cartItems, subtotal, cuttingCharges: cuttingTotal, deliveryFee: effectiveDeliveryFee, discount: 0,
@@ -421,10 +424,12 @@ export default function CheckoutScreen() {
       await earnPoints(Math.floor(total * POINTS_PER_RUPEE), `Order #${order.id}`, order.id);
       const walletMsg = walletDeduction > 0 ? ` ₹${walletDeduction} paid from wallet.` : '';
       const remainMsg = remainingToPay > 0 && walletDeduction > 0 ? ` ₹${remainingToPay} via ${payment === 'upi' ? 'UPI' : 'Cash on Delivery'}.` : '';
+      const isGroupSub = !!params.groupCode;
+      const subLabel = isGroupSub ? `group ${subFrequency}` : subFrequency;
       const msg = orderType === 'subscribe'
-        ? `Order #${order.id} placed with ${subFrequency} subscription!${walletMsg}${remainMsg} Your first delivery starts ${SCHEDULE_DATES.find(d => d.key === subStartDate)?.label || 'soon'}.`
+        ? `Order #${order.id} placed with ${subLabel} subscription!${walletMsg}${remainMsg} Your first delivery starts ${SCHEDULE_DATES.find(d => d.key === subStartDate)?.label || 'soon'}.`
         : `Order #${order.id} has been placed successfully.${walletMsg}${remainMsg} Your fresh-cut items will be ready soon!`;
-      Alert.alert(orderType === 'subscribe' ? 'Subscribed!' : 'Order Placed!', msg,
+      Alert.alert(orderType === 'subscribe' ? (isGroupSub ? 'Group Subscribed!' : 'Subscribed!') : 'Order Placed!', msg,
         [{ text: 'View Order', onPress: () => router.replace({ pathname: '/order-confirmation', params: { orderId: order.id, total: String(total) } } as any) }]);
     } catch { Alert.alert('Error', 'Failed to place order. Please try again.'); }
     finally { setPlacing(false); }

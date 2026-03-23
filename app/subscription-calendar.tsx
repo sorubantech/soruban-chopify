@@ -67,32 +67,27 @@ export default function SubscriptionCalendarScreen() {
         isDelivery = true;
       } else if (subscription.frequency === 'weekly') {
         const weekDay = dayName as WeekDay;
-        if (subscription.weeklyPlan) {
-          // If weeklyPlan exists, check if that day is active with items
+        // Check if weeklyPlan has any active days with actual items
+        const hasWeeklyPlanItems = subscription.weeklyPlan && Object.values(subscription.weeklyPlan).some(
+          (dp: any) => dp && dp.isActive && dp.items && dp.items.length > 0
+        );
+        if (subscription.weeklyPlan && hasWeeklyPlanItems) {
           const dayPlan = subscription.weeklyPlan[weekDay];
           if (dayPlan && dayPlan.isActive && dayPlan.items.length > 0) {
             isDelivery = true;
           }
-        } else if (subscription.weeklyDay) {
-          // Fallback: single weeklyDay
-          isDelivery = dayName === subscription.weeklyDay;
-        } else {
-          // No weeklyPlan and no weeklyDay — order has items, show all weekdays as delivery
-          if (order && order.items.length > 0 && dayName !== 'Sun') {
+        } else if (subscription.weeklyPlan && order && order.items.length > 0) {
+          // weeklyPlan exists with isActive flags but no items yet — use isActive to determine delivery days
+          const dayPlan = subscription.weeklyPlan[weekDay];
+          if (dayPlan && dayPlan.isActive) {
             isDelivery = true;
           }
+        } else if (subscription.weeklyDay) {
+          isDelivery = dayName === subscription.weeklyDay;
         }
       } else if (subscription.frequency === 'monthly') {
         if (subscription.monthlyDates && subscription.monthlyDates.length > 0) {
           isDelivery = subscription.monthlyDates.includes(day);
-        } else if (subscription.weeklyPlan) {
-          // Check if this weekday has items in the plan
-          const wd = dayName as WeekDay;
-          const dp = subscription.weeklyPlan[wd];
-          isDelivery = !!(dp && dp.isActive && dp.items.length > 0);
-        } else if (order && order.items.length > 0) {
-          // No monthlyDates and no plan — show all weekdays as delivery
-          isDelivery = dayName !== 'Sun';
         }
       }
 

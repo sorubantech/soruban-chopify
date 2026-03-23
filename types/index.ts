@@ -79,6 +79,8 @@ export interface Subscription {
   pausedUntil?: string;      // ISO date — vacation pause end (auto-resume after this)
   pausedDays?: number;       // total delivery days paused
   weeklyPlan?: WeeklyPlan;   // customizable daily plan — different items per day
+  groupCode?: string;        // group subscription code (e.g. GRP3210)
+  groupName?: string;        // group subscription name (e.g. Room 204 Gang)
 }
 
 export type PaymentMethod = 'cod' | 'upi' | 'wallet' | 'wallet_partial';

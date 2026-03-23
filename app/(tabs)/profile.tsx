@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar, Image, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, FlatList, StatusBar, Image, Alert, useWindowDimensions } from 'react-native';
 import Icon from '@expo/vector-icons/MaterialCommunityIcons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
@@ -31,6 +31,7 @@ export default function ProfileScreen() {
   const totalSaved = orders.reduce((sum, o) => sum + (o.discount || 0), 0);
   const activeSubscriptions = orders.filter(o => o.subscription && (o.subscription.status === 'active' || o.subscription.status === 'paused'));
   const themed = useThemedStyles();
+  const { width: screenWidth } = useWindowDimensions();
   const { loyalty } = useLoyalty();
   const { familyMembers, resetProfile, userName } = useDiet();
 
@@ -104,41 +105,74 @@ export default function ProfileScreen() {
               <Text style={[styles.recentTitle, themed.textPrimary]}>My Subscriptions</Text>
               <View style={styles.subCountBadge}><Text style={styles.subCountText}>{activeSubscriptions.length} subscription{activeSubscriptions.length !== 1 ? 's' : ''}</Text></View>
             </View>
-            {activeSubscriptions.map(order => {
-              const sub = order.subscription!;
-              const freqLabel = sub.frequency.charAt(0).toUpperCase() + sub.frequency.slice(1);
-              const scheduleDetail = sub.frequency === 'weekly' ? `Every ${sub.weeklyDay}` : sub.frequency === 'monthly' ? `On ${sub.monthlyDates?.join(', ')}` : 'Every day';
-              const skippedCount = (sub.skippedDeliveries || []).filter(s => s.status === 'skipped').length;
-              return (
-                <TouchableOpacity
-                  key={order.id}
-                  style={[styles.subCard, themed.card]}
-                  onPress={() => router.push({ pathname: '/subscription-manage' as any, params: { id: order.id } })}
-                >
-                  <View style={styles.subCardIcon}>
-                    <Icon name={sub.frequency === 'daily' ? 'calendar-today' : sub.frequency === 'weekly' ? 'calendar-week' : 'calendar-month'} size={22} color="#FFF" />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                      <Text style={styles.subCardTitle}>{freqLabel} Subscription</Text>
-                      {sub.status === 'paused' ? (
-                        <View style={styles.subPausedBadge}><Text style={styles.subPausedText}>Paused</Text></View>
-                      ) : (
-                        <View style={styles.subActiveBadge}><Text style={styles.subActiveText}>Active</Text></View>
+            <FlatList
+              data={activeSubscriptions}
+              keyExtractor={o => o.id}
+              horizontal={activeSubscriptions.length > 3}
+              showsHorizontalScrollIndicator={false}
+              scrollEnabled={activeSubscriptions.length > 3}
+              contentContainerStyle={activeSubscriptions.length > 3 ? { gap: 10, paddingRight: 4 } : undefined}
+              renderItem={({ item: order }) => {
+                const sub = order.subscription!;
+                const freqLabel = sub.frequency.charAt(0).toUpperCase() + sub.frequency.slice(1);
+                const isGroup = !!sub.groupCode;
+                const typeLabel = `${isGroup ? 'Group ' : ''}${freqLabel}`;
+                const iconName = sub.frequency === 'daily' ? 'calendar-today' : sub.frequency === 'weekly' ? 'calendar-week' : 'calendar-month';
+                const iconBg = isGroup ? '#1565C0' : sub.frequency === 'weekly' ? '#2E7D32' : sub.frequency === 'monthly' ? '#1565C0' : '#F57C00';
+                const scheduleDetail = sub.frequency === 'weekly'
+                  ? `Every ${sub.weeklyDay || 'weekday'}`
+                  : sub.frequency === 'monthly'
+                  ? `On ${sub.monthlyDates?.join(', ') || 'weekdays'}`
+                  : 'Every day';
+                const skippedCount = (sub.skippedDeliveries || []).filter(s => s.status === 'skipped').length;
+
+                return (
+                  <TouchableOpacity
+                    style={[
+                      styles.subCard,
+                      themed.card,
+                      activeSubscriptions.length > 3 && { width: screenWidth - 56 },
+                    ]}
+                    onPress={() => router.push({ pathname: '/subscription-manage' as any, params: { id: order.id } })}
+                    activeOpacity={0.8}
+                  >
+                    <View style={[styles.subCardIcon, { backgroundColor: iconBg }]}>
+                      <Icon name={iconName as any} size={20} color="#FFF" />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                        <Text style={styles.subCardTitle} numberOfLines={1}>{typeLabel} Subscription</Text>
+                        {sub.status === 'paused' ? (
+                          <View style={styles.subPausedBadge}><Text style={styles.subPausedText}>Paused</Text></View>
+                        ) : (
+                          <View style={styles.subActiveBadge}><Text style={styles.subActiveText}>Active</Text></View>
+                        )}
+                      </View>
+                      {isGroup && sub.groupName && (
+                        <View style={styles.subGroupTag}>
+                          <Icon name="account-group" size={10} color="#1565C0" />
+                          <Text style={styles.subGroupTagText}>{sub.groupName}</Text>
+                        </View>
                       )}
+                      <Text style={styles.subCardDetail} numberOfLines={1}>{scheduleDetail} at {sub.preferredTime}</Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                        <Text style={styles.subCardItems}>{order.items.length} items · {'\u20B9'}{order.total}/delivery</Text>
+                        {skippedCount > 0 && <Text style={styles.subSkippedCount}>{skippedCount} skipped</Text>}
+                      </View>
                     </View>
-                    <Text style={styles.subCardDetail}>{scheduleDetail} at {sub.preferredTime}</Text>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                      <Text style={styles.subCardItems}>{order.items.length} items · {'\u20B9'}{order.total}/delivery</Text>
-                      {skippedCount > 0 && <Text style={styles.subSkippedCount}>{skippedCount} skipped</Text>}
+                    <View style={styles.manageBtn}>
+                      <Text style={styles.manageBtnText}>Manage</Text>
                     </View>
-                  </View>
-                  <View style={styles.manageBtn}>
-                    <Text style={styles.manageBtnText}>Manage</Text>
-                  </View>
-                </TouchableOpacity>
-              );
-            })}
+                  </TouchableOpacity>
+                );
+              }}
+            />
+            {activeSubscriptions.length > 3 && (
+              <View style={styles.subScrollHint}>
+                <Icon name="gesture-swipe-horizontal" size={14} color={COLORS.text.muted} />
+                <Text style={styles.subScrollHintText}>Swipe to see more</Text>
+              </View>
+            )}
           </View>
         )}
 
@@ -262,18 +296,22 @@ const styles = StyleSheet.create({
   // Subscriptions
   subCountBadge: { backgroundColor: '#FFF8E1', borderRadius: RADIUS.sm, paddingHorizontal: 8, paddingVertical: 2 },
   subCountText: { fontSize: 11, fontWeight: '700', color: '#F57C00' },
-  subCard: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#FFF', borderRadius: RADIUS.lg, padding: SPACING.md, marginBottom: SPACING.sm, ...SHADOW.sm },
-  subCardIcon: { width: 44, height: 44, borderRadius: 12, backgroundColor: COLORS.primary, justifyContent: 'center', alignItems: 'center' },
+  subCard: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: '#FFF', borderRadius: RADIUS.lg, padding: SPACING.md, marginBottom: SPACING.sm, ...SHADOW.sm },
+  subCardIcon: { width: 40, height: 40, borderRadius: 10, backgroundColor: COLORS.primary, justifyContent: 'center', alignItems: 'center' },
   subCardTitle: { fontSize: 13, fontWeight: '800', color: COLORS.text.primary },
   subActiveBadge: { backgroundColor: '#E8F5E9', borderRadius: RADIUS.sm, paddingHorizontal: 6, paddingVertical: 2 },
   subActiveText: { fontSize: 9, fontWeight: '700', color: '#4CAF50' },
   subPausedBadge: { backgroundColor: '#FFF8E1', borderRadius: RADIUS.sm, paddingHorizontal: 6, paddingVertical: 2 },
   subPausedText: { fontSize: 9, fontWeight: '700', color: '#F57C00' },
-  subCardDetail: { fontSize: 11, color: COLORS.text.secondary, marginTop: 2 },
-  subCardItems: { fontSize: 11, color: COLORS.text.muted, marginTop: 1 },
+  subGroupTag: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#E3F2FD', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2, alignSelf: 'flex-start', marginTop: 3 },
+  subGroupTagText: { fontSize: 9, fontWeight: '700', color: '#1565C0' },
+  subCardDetail: { fontSize: 11, color: COLORS.text.secondary, marginTop: 3 },
+  subCardItems: { fontSize: 11, color: COLORS.text.muted, marginTop: 2 },
   subSkippedCount: { fontSize: 10, fontWeight: '700', color: COLORS.status.error },
-  manageBtn: { borderWidth: 1.5, borderColor: COLORS.primary, borderRadius: RADIUS.full, paddingHorizontal: 12, paddingVertical: 6 },
+  manageBtn: { borderWidth: 1.5, borderColor: COLORS.primary, borderRadius: RADIUS.full, paddingHorizontal: 14, paddingVertical: 7 },
   manageBtnText: { fontSize: 11, fontWeight: '700', color: COLORS.primary },
+  subScrollHint: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, marginTop: 6 },
+  subScrollHintText: { fontSize: 10, color: COLORS.text.muted },
   menuDesc: { fontSize: 11, color: COLORS.text.muted, marginTop: 1 },
   deleteAccountBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginHorizontal: SPACING.base, marginTop: SPACING.md, marginBottom: SPACING.xl, paddingVertical: 12, borderWidth: 1, borderColor: COLORS.status.error, borderRadius: RADIUS.lg },
   deleteAccountText: { fontSize: 14, fontWeight: '700', color: COLORS.status.error },

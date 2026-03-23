@@ -499,34 +499,38 @@ export default function HomeScreen() {
 
       {/* ─── Header ─── */}
       <LinearGradient colors={themed.headerGradient} style={styles.header}>
-        <View style={styles.headerRow}>
-          <View>
-            <Text style={[styles.headerTitle, themed.textPrimary]}>Chopify</Text>
-            <Text style={styles.headerSub}>Fresh cut, ready to cook!</Text>
-          </View>
-          <View style={styles.headerActions}>
-            <TouchableOpacity onPress={() => router.push('/wallet')} style={styles.walletBtn}>
-              <View style={styles.walletIcon}>
-                <Icon name="wallet-outline" size={20} color={COLORS.text.primary} />
-              </View>
-              <Text style={styles.walletText}>{'\u20B9'}0</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.headerIconBtn} onPress={() => router.push('/notifications')}>
-              <Icon name="bell-outline" size={24} color={COLORS.text.primary} />
-              <View style={styles.notifDot} />
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => router.push('/(tabs)/profile')} style={styles.profileBtn}>
-              {user?.avatar ? (
-                <Image source={{ uri: user.avatar }} style={styles.profileIconImg} resizeMode="cover" />
-              ) : (
-                <View style={styles.profileIcon}>
-                  <Icon name="account" size={20} color="#FFF" />
+        {/* Title row — collapses on scroll */}
+        {!stickyVisible && (
+          <View style={styles.headerRow}>
+            <View>
+              <Text style={[styles.headerTitle, themed.textPrimary]}>Chopify</Text>
+              <Text style={styles.headerSub}>Fresh cut, ready to cook!</Text>
+            </View>
+            <View style={styles.headerActions}>
+              <TouchableOpacity onPress={() => router.push('/wallet')} style={styles.walletBtn}>
+                <View style={styles.walletIcon}>
+                  <Icon name="wallet-outline" size={20} color={COLORS.text.primary} />
                 </View>
-              )}
-            </TouchableOpacity>
+                <Text style={styles.walletText}>{'\u20B9'}0</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.headerIconBtn} onPress={() => router.push('/notifications')}>
+                <Icon name="bell-outline" size={24} color={COLORS.text.primary} />
+                <View style={styles.notifDot} />
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => router.push('/(tabs)/profile')} style={styles.profileBtn}>
+                {user?.avatar ? (
+                  <Image source={{ uri: user.avatar }} style={styles.profileIconImg} resizeMode="cover" />
+                ) : (
+                  <View style={styles.profileIcon}>
+                    <Icon name="account" size={20} color="#FFF" />
+                  </View>
+                )}
+              </TouchableOpacity>
+            </View>
           </View>
-        </View>
+        )}
 
+        {/* Search bar — always visible */}
         <TouchableOpacity
           style={styles.searchBar}
           onPress={() => router.push('/search')}
@@ -537,6 +541,7 @@ export default function HomeScreen() {
         </TouchableOpacity>
       </LinearGradient>
 
+      <View style={{ flex: 1 }}>
       {/* ─── Sticky Categories + Filters overlay (shown when scrolled past carousel) ─── */}
       {stickyVisible && (
         <View style={styles.stickyOverlay}>
@@ -596,8 +601,8 @@ export default function HomeScreen() {
         {/* ━━━ 1. OFFERS CAROUSEL ━━━ */}
         <OffersCarousel width={width} />
 
-        {/* ━━━ 2. CATEGORIES + FILTERS (in-flow, scrolls normally) ━━━ */}
-        <View style={styles.stickySection}>
+        {/* ━━━ 2. CATEGORIES + FILTERS (in-flow, hidden when sticky overlay is active) ━━━ */}
+        <View style={[styles.stickySection, stickyVisible && styles.stickySectionHidden]}>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryScroll}>
             {CATEGORIES.map(cat => (
               <BounceCard
@@ -643,8 +648,6 @@ export default function HomeScreen() {
           </ScrollView>
         </View>
 
-        {/* Active subscriptions card removed from home — manage via Orders tab or Profile */}
-
         {/* ━━━ SUBSCRIPTION PROMO ━━━ */}
         <TouchableOpacity
           style={{ marginHorizontal: SPACING.base, marginTop: SECTION_GAP, borderRadius: RADIUS.xl, overflow: 'hidden', ...SHADOW.lg }}
@@ -675,26 +678,29 @@ export default function HomeScreen() {
             {([
               { icon: 'ticket-percent' as const, label: 'Offers', color: '#E65100', bg: '#FFF3E0', route: '/offers-coupons' },
               { icon: 'star-circle' as const, label: 'Rewards', color: '#7B1FA2', bg: '#F3E5F5', route: '/loyalty' },
-              { icon: 'pot-steam' as const, label: 'Recipe Cart', color: '#00897B', bg: '#E0F2F1', route: '/recipe-cart' },
+              { icon: 'pot-steam' as const, label: 'Recipes', color: '#00897B', bg: '#E0F2F1', route: '/recipe-cart' },
               { icon: 'package-variant' as const, label: 'My Pack', color: COLORS.green, bg: '#E8F5E9', route: '/create-pack' },
-              { icon: 'cart-heart' as const, label: 'Saved Carts', color: '#E91E63', bg: '#FCE4EC', route: '/saved-carts' },
-              { icon: 'food-apple' as const, label: 'Diet Plan', color: '#FF6F00', bg: '#FFF8E1', route: '/diet-preferences' },
+              { icon: 'cart-heart' as const, label: 'Saved', color: '#E91E63', bg: '#FCE4EC', route: '/saved-carts' },
+              { icon: 'food-apple' as const, label: 'Diet', color: '#FF6F00', bg: '#FFF8E1', route: '/diet-preferences' },
               { icon: 'chart-line' as const, label: 'Analytics', color: '#1565C0', bg: '#E3F2FD', route: '/spending-analytics' },
               { icon: 'account-group' as const, label: 'Referral', color: '#6D4C41', bg: '#EFEBE9', route: '/referral' },
             ] as const).map((item) => (
-              <BounceCard
+              <TouchableOpacity
                 key={item.route}
                 style={styles.quickAccessItem}
                 onPress={() => router.push(item.route as any)}
+                activeOpacity={0.7}
               >
                 <View style={[styles.quickAccessIconWrap, { backgroundColor: item.bg }]}>
-                  <Icon name={item.icon} size={24} color={item.color} />
+                  <Icon name={item.icon} size={20} color={item.color} />
                 </View>
-                <Text style={styles.quickAccessLabel} numberOfLines={1}>{item.label}</Text>
-              </BounceCard>
+                <Text style={styles.quickAccessLabel}>{item.label}</Text>
+              </TouchableOpacity>
             ))}
           </View>
         </View> */}
+
+        {/*
 
         {/* ━━━ FOR YOU - Personalized Section ━━━ */}
         {forYouProducts.length > 0 && (
@@ -717,7 +723,7 @@ export default function HomeScreen() {
                   <TouchableOpacity
                     key={plan.id}
                     style={styles.forYouPlanCard}
-                    onPress={() => router.push('/subscription-setup' as any)}
+                    onPress={() => router.push({ pathname: '/subscription-setup', params: { planId: plan.id } } as any)}
                     activeOpacity={0.9}
                   >
                     <View style={styles.forYouPlanImageWrap}>
@@ -1098,6 +1104,7 @@ export default function HomeScreen() {
 
       {/* ━━━ WELCOME MODAL ━━━ */}
       {/* <WelcomeModal visible={showWelcome} onClose={() => setShowWelcome(false)} /> */}
+      </View>
     </SafeAreaView>
   );
 }
@@ -1138,7 +1145,15 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.background,
     paddingBottom: 4,
   },
+  stickySectionHidden: {
+    opacity: 0,
+    pointerEvents: 'none',
+  },
   stickyOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
     backgroundColor: COLORS.background,
     zIndex: 50,
     paddingBottom: 4,
@@ -1175,21 +1190,21 @@ const styles = StyleSheet.create({
   /* Quick Access Card */
   quickAccessCard: {
     marginHorizontal: SPACING.base, marginTop: SPACING.lg,
-    borderRadius: RADIUS.xl, backgroundColor: '#FFF',
-    paddingVertical: SPACING.lg, paddingHorizontal: SPACING.sm,
+    borderRadius: RADIUS.lg, backgroundColor: '#FFF',
+    padding: SPACING.md,
     ...SHADOW.sm,
   },
   quickAccessGrid: {
     flexDirection: 'row', flexWrap: 'wrap',
   },
   quickAccessItem: {
-    width: '25%', alignItems: 'center', paddingVertical: 10,
+    width: '25%', alignItems: 'center', paddingVertical: 8,
   },
   quickAccessIconWrap: {
-    width: 48, height: 48, borderRadius: 14,
-    alignItems: 'center', justifyContent: 'center', marginBottom: 6,
+    width: 42, height: 42, borderRadius: 12,
+    alignItems: 'center', justifyContent: 'center', marginBottom: 4,
   },
-  quickAccessLabel: { fontSize: 11, fontWeight: '700', color: COLORS.text.primary, textAlign: 'center' },
+  quickAccessLabel: { fontSize: 11, fontWeight: '600', color: COLORS.text.secondary, textAlign: 'center' },
 
   /* Section Title */
   sectionTitle: {

@@ -568,18 +568,24 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
         isDeliveryDay = true;
       } else if (sub.frequency === 'weekly') {
         const wd = dayName as any;
-        if (sub.weeklyPlan) {
+        // Check if weeklyPlan has any active days with items
+        const hasWeeklyPlanItems = sub.weeklyPlan && Object.values(sub.weeklyPlan).some(
+          (dp: any) => dp && dp.isActive && dp.items && dp.items.length > 0
+        );
+        if (sub.weeklyPlan && hasWeeklyPlanItems) {
           const dp = sub.weeklyPlan[wd];
           isDeliveryDay = !!(dp && dp.isActive && dp.items.length > 0);
+        } else if (sub.weeklyPlan && order.items.length > 0) {
+          // weeklyPlan exists with isActive flags but no items yet — use isActive to determine delivery days
+          const dp = sub.weeklyPlan[wd];
+          isDeliveryDay = !!(dp && dp.isActive);
         } else if (sub.weeklyDay) {
           isDeliveryDay = dayName === sub.weeklyDay;
-        } else {
-          isDeliveryDay = dayName !== 'Sun';
         }
       } else if (sub.frequency === 'monthly') {
         if (sub.monthlyDates && sub.monthlyDates.length > 0) {
           isDeliveryDay = sub.monthlyDates.includes(d.getDate());
-        } else { isDeliveryDay = dayName !== 'Sun'; }
+        }
       }
 
       if (!isDeliveryDay) continue;

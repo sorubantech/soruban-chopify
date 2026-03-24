@@ -29,6 +29,12 @@ const LIFESTYLE_OPTIONS: { value: UserLifestyle; label: string; icon: string; de
   { value: 'homemaker', label: 'Homemaker', icon: 'home-heart', desc: 'Managing home & family' },
 ];
 
+/* Lifestyles where gender is predefined — hide gender picker for these */
+const IMPLIED_GENDER: Partial<Record<UserLifestyle, UserGender>> = {
+  gym: 'male',
+  homemaker: 'female',
+};
+
 const HEALTH_GOALS: { id: string; label: string; icon: string }[] = [
   { id: 'lose_weight', label: 'Lose Weight', icon: 'scale-bathroom' },
   { id: 'build_muscle', label: 'Build Muscle', icon: 'arm-flex' },
@@ -138,26 +144,7 @@ export default function DietPreferencesScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* ── 0a. Gender ── */}
-        <SectionTitle icon="account" title="I am" />
-        <View style={{ flexDirection: 'row', gap: 10, marginBottom: SPACING.md }}>
-          {GENDER_OPTIONS.map(opt => {
-            const selected = localGender === opt.value;
-            return (
-              <TouchableOpacity
-                key={opt.value}
-                activeOpacity={0.7}
-                onPress={() => setLocalGender(opt.value)}
-                style={[styles.genderCard, themed.card, selected && { borderColor: COLORS.primary, borderWidth: 2, backgroundColor: '#E8F5E9' }]}
-              >
-                <Icon name={opt.icon as any} size={26} color={selected ? COLORS.primary : COLORS.text.muted} />
-                <Text style={[{ fontSize: 13, fontWeight: '700', marginTop: 4 }, selected ? { color: COLORS.primary } : themed.textPrimary]}>{opt.label}</Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-
-        {/* ── 0b. Lifestyle ── */}
+        {/* ── 0a. Lifestyle ── */}
         <SectionTitle icon="run" title="My Lifestyle" />
         <View style={{ gap: 8, marginBottom: SPACING.md }}>
           {LIFESTYLE_OPTIONS.map(opt => {
@@ -166,7 +153,11 @@ export default function DietPreferencesScreen() {
               <TouchableOpacity
                 key={opt.value}
                 activeOpacity={0.7}
-                onPress={() => setLocalLifestyle(opt.value)}
+                onPress={() => {
+                  setLocalLifestyle(opt.value);
+                  const implied = IMPLIED_GENDER[opt.value];
+                  if (implied) setLocalGender(implied);
+                }}
                 style={[styles.lifestyleCard, themed.card, selected && { borderColor: COLORS.primary, borderWidth: 2, backgroundColor: '#E8F5E9' }]}
               >
                 <View style={[styles.lifestyleIcon, selected && { backgroundColor: COLORS.primary }]}>
@@ -181,6 +172,29 @@ export default function DietPreferencesScreen() {
             );
           })}
         </View>
+
+        {/* ── 0b. Gender (hidden when gender is implied by lifestyle) ── */}
+        {!IMPLIED_GENDER[localLifestyle] && (
+          <>
+          <SectionTitle icon="account" title="I am" />
+          <View style={{ flexDirection: 'row', gap: 10, marginBottom: SPACING.md }}>
+            {GENDER_OPTIONS.map(opt => {
+              const selected = localGender === opt.value;
+              return (
+                <TouchableOpacity
+                  key={opt.value}
+                  activeOpacity={0.7}
+                  onPress={() => setLocalGender(opt.value)}
+                  style={[styles.genderCard, themed.card, selected && { borderColor: COLORS.primary, borderWidth: 2, backgroundColor: '#E8F5E9' }]}
+                >
+                  <Icon name={opt.icon as any} size={26} color={selected ? COLORS.primary : COLORS.text.muted} />
+                  <Text style={[{ fontSize: 13, fontWeight: '700', marginTop: 4 }, selected ? { color: COLORS.primary } : themed.textPrimary]}>{opt.label}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+          </>
+        )}
 
         {/* ── 1. Dietary Preferences ── */}
         <SectionTitle icon="silverware-fork-knife" title="Dietary Preferences" />

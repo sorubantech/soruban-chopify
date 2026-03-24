@@ -19,6 +19,16 @@ function toDateStr(year: number, month: number, day: number): string {
   return `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 }
 
+function getSubColor(frequency: string, isGroup: boolean): string {
+  if (isGroup) return '#1565C0';
+  return frequency === 'daily' ? '#F57C00' : frequency === 'weekly' ? COLORS.primary : '#7B1FA2';
+}
+
+function getSubBgColor(frequency: string, isGroup: boolean): string {
+  if (isGroup) return '#E3F2FD';
+  return frequency === 'daily' ? '#FFF3E0' : frequency === 'weekly' ? '#E8F5E9' : '#F3E5F5';
+}
+
 type DayStatus = 'delivered' | 'cancelled' | 'in_progress' | 'none';
 
 type SubDeliveryInfo = {
@@ -26,6 +36,7 @@ type SubDeliveryInfo = {
   frequency: string;
   label: string;
   isSkipped: boolean;
+  isGroup: boolean;
   items: { name: string; quantity: number }[];
   total: number;
 };
@@ -66,11 +77,12 @@ export default function OrderHistoryCalendarScreen() {
     subscriptionOrders.forEach(o => {
       const sub = o.subscription!;
       const freqLabel = sub.frequency.charAt(0).toUpperCase() + sub.frequency.slice(1);
+      const isGroup = !!sub.groupCode;
       tabs.push({
         key: o.id,
-        label: `${freqLabel} Sub`,
-        icon: sub.frequency === 'daily' ? 'calendar-today' : sub.frequency === 'weekly' ? 'calendar-week' : 'calendar-month',
-        color: sub.frequency === 'daily' ? '#F57C00' : sub.frequency === 'weekly' ? COLORS.primary : '#7B1FA2',
+        label: `${isGroup ? 'Group ' : ''}${freqLabel} Sub`,
+        icon: isGroup ? 'account-group' : sub.frequency === 'daily' ? 'calendar-today' : sub.frequency === 'weekly' ? 'calendar-week' : 'calendar-month',
+        color: getSubColor(sub.frequency, isGroup),
       });
     });
     return tabs;
@@ -97,7 +109,16 @@ export default function OrderHistoryCalendarScreen() {
           const wd = dayName as WeekDay;
           if (sub.weeklyPlan) {
             const dp = sub.weeklyPlan[wd];
-            isDelivery = !!(dp && dp.isActive && dp.items.length > 0);
+            const hasItems = !!(dp && dp.isActive && dp.items.length > 0);
+            // If weeklyPlan exists but all days have empty items, fall through to weeklyDay
+            const planHasAnyItems = Object.values(sub.weeklyPlan).some(d => d.isActive && d.items.length > 0);
+            if (planHasAnyItems) {
+              isDelivery = hasItems;
+            } else if (sub.weeklyDay) {
+              isDelivery = dayName === sub.weeklyDay;
+            } else {
+              isDelivery = dayName !== 'Sun';
+            }
           } else if (sub.weeklyDay) {
             isDelivery = dayName === sub.weeklyDay;
           } else {
@@ -114,11 +135,13 @@ export default function OrderHistoryCalendarScreen() {
         if (isDelivery) {
           const isSkipped = (sub.skippedDeliveries || []).some(s => s.date === dateStr && s.status === 'skipped');
           const freqLabel = sub.frequency.charAt(0).toUpperCase() + sub.frequency.slice(1);
+          const isGroup = !!sub.groupCode;
           const info: SubDeliveryInfo = {
             orderId: order.id,
             frequency: sub.frequency,
-            label: `${freqLabel} Subscription`,
+            label: `${isGroup ? 'Group ' : ''}${freqLabel} Subscription`,
             isSkipped,
+            isGroup,
             items: order.items.map(i => ({ name: i.name, quantity: i.quantity })),
             total: order.total,
           };
@@ -365,10 +388,7 @@ export default function OrderHistoryCalendarScreen() {
                             {subDels.map((del, i) => (
                               <View key={i} style={{
                                 width: 5, height: 5, borderRadius: 3,
-                                backgroundColor: del.isSkipped ? COLORS.status.error
-                                  : del.frequency === 'daily' ? '#F57C00'
-                                  : del.frequency === 'weekly' ? COLORS.primary
-                                  : '#7B1FA2',
+                                backgroundColor: del.isSkipped ? COLORS.status.error : getSubColor(del.frequency, del.isGroup),
                               }} />
                             ))}
                           </View>
@@ -404,20 +424,28 @@ export default function OrderHistoryCalendarScreen() {
             </View>
           </View>
           {subscriptionOrders.length > 0 && (
-            <View style={[styles.legendRow, { marginTop: 6 }]}>
-              <View style={styles.legendItem}>
-                <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: COLORS.primary }} />
-                <Text style={[styles.legendText, themed.textSecondary]}>Weekly</Text>
+            <>
+              <View style={[styles.legendRow, { marginTop: 6 }]}>
+                <View style={styles.legendItem}>
+                  <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#F57C00' }} />
+                  <Text style={[styles.legendText, themed.textSecondary]}>Daily</Text>
+                </View>
+                <View style={styles.legendItem}>
+                  <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: COLORS.primary }} />
+                  <Text style={[styles.legendText, themed.textSecondary]}>Weekly</Text>
+                </View>
+                <View style={styles.legendItem}>
+                  <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#7B1FA2' }} />
+                  <Text style={[styles.legendText, themed.textSecondary]}>Monthly</Text>
+                </View>
               </View>
-              <View style={styles.legendItem}>
-                <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#7B1FA2' }} />
-                <Text style={[styles.legendText, themed.textSecondary]}>Monthly</Text>
+              <View style={[styles.legendRow, { marginTop: 6 }]}>
+                <View style={styles.legendItem}>
+                  <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#1565C0' }} />
+                  <Text style={[styles.legendText, themed.textSecondary]}>Group Sub</Text>
+                </View>
               </View>
-              <View style={styles.legendItem}>
-                <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#F57C00' }} />
-                <Text style={[styles.legendText, themed.textSecondary]}>Daily</Text>
-              </View>
-            </View>
+            </>
           )}
           <View style={[styles.legendRow, { marginTop: 6 }]}>
             <View style={styles.legendItem}>
@@ -457,13 +485,13 @@ export default function OrderHistoryCalendarScreen() {
                     activeOpacity={0.8}
                     onPress={() => router.push({ pathname: '/subscription-manage' as any, params: { id: del.orderId } })}
                   >
-                    <View style={[styles.orderStatusDot, { backgroundColor: del.isSkipped ? COLORS.status.error : del.frequency === 'daily' ? '#F57C00' : del.frequency === 'weekly' ? COLORS.primary : '#7B1FA2' }]} />
+                    <View style={[styles.orderStatusDot, { backgroundColor: del.isSkipped ? COLORS.status.error : getSubColor(del.frequency, del.isGroup) }]} />
                     <View style={{ flex: 1 }}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                         <Text style={[styles.orderRowId, themed.textPrimary]}>{del.label}</Text>
-                        <View style={[styles.subTypeBadge, { backgroundColor: del.frequency === 'daily' ? '#FFF3E0' : del.frequency === 'weekly' ? '#E8F5E9' : '#F3E5F5' }]}>
-                          <Text style={[styles.subTypeBadgeText, { color: del.frequency === 'daily' ? '#F57C00' : del.frequency === 'weekly' ? COLORS.primary : '#7B1FA2' }]}>
-                            {del.frequency}
+                        <View style={[styles.subTypeBadge, { backgroundColor: getSubBgColor(del.frequency, del.isGroup) }]}>
+                          <Text style={[styles.subTypeBadgeText, { color: getSubColor(del.frequency, del.isGroup) }]}>
+                            {del.isGroup ? `Group ${del.frequency}` : del.frequency}
                           </Text>
                         </View>
                       </View>

@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, StatusBar, RefreshControl, Alert } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, StatusBar, RefreshControl, Alert, ScrollView } from 'react-native';
 import Icon from '@expo/vector-icons/MaterialCommunityIcons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
@@ -140,6 +140,7 @@ export default function OrdersScreen() {
                 </View>
               </View>
 
+              <ScrollView style={activeSubscriptions.length > 2 ? { maxHeight: 380 } : undefined} nestedScrollEnabled showsVerticalScrollIndicator={activeSubscriptions.length > 2}>
               {activeSubscriptions.map(order => {
                 const sub = order.subscription!;
                 const freqLabel = sub.frequency.charAt(0).toUpperCase() + sub.frequency.slice(1);
@@ -248,6 +249,7 @@ export default function OrdersScreen() {
                   </TouchableOpacity>
                 );
               })}
+              </ScrollView>
 
               {regularOrders.length > 0 && (
                 <Text style={[styles.regularOrdersLabel, themed.textPrimary]}>Orders</Text>

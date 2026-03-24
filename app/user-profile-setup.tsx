@@ -238,7 +238,8 @@ export default function UserProfileSetupScreen() {
                 </View>
               </View>
 
-              {/* Gender */}
+              {/* Gender — hidden when category has predefined gender */}
+              {!selectedCat?.gender && (
               <View style={styles.inputGroup}>
                 <Text style={[styles.inputLabel, themed.textPrimary]}>Gender *</Text>
                 <View style={{ flexDirection: 'row', gap: 10 }}>
@@ -258,6 +259,7 @@ export default function UserProfileSetupScreen() {
                   })}
                 </View>
               </View>
+              )}
 
               {/* Suggestion tip */}
               <View style={[styles.tipCard, { borderLeftColor: selectedCat?.color || COLORS.primary }]}>

@@ -1,5 +1,5 @@
-import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, StatusBar, TextInput, Modal, Share, Alert, Animated as RNAnimated } from 'react-native';
+import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, StatusBar, TextInput, Modal, Share, Alert, Animated as RNAnimated, FlatList, useWindowDimensions } from 'react-native';
 import Icon from '@expo/vector-icons/MaterialCommunityIcons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -55,6 +55,38 @@ export default function ProductDetailScreen() {
     return { inStock: true, label: 'In Stock', color: COLORS.green };
   }, [id, product]);
 
+  /* ─── Image/Video Carousel Data ─── */
+  const { width: screenW } = useWindowDimensions();
+  const carouselMedia = useMemo(() => {
+    const items: { id: string; kind: 'photo' | 'gif' | 'youtube'; uri: string; label: string }[] = [];
+    if (product) items.push({ id: 'main', kind: 'photo', uri: product.image, label: product.name });
+    if (isCuttable) {
+      // 1 cut style image
+      const firstCut = CUT_TYPE_OPTIONS[0];
+      if (firstCut) items.push({ id: `img_${firstCut.id}`, kind: 'photo', uri: firstCut.media.image, label: `${firstCut.label} Cut` });
+      // 1 cutting video
+      const videocut = CUT_TYPE_OPTIONS.find(c => c.media.videoUrl);
+      if (videocut?.media.videoUrl) {
+        const isGif = /\.(gif|png|jpg|jpeg|webp)(\?|$)/i.test(videocut.media.videoUrl);
+        items.push({ id: `vid_${videocut.id}`, kind: isGif ? 'gif' : 'youtube', uri: videocut.media.videoUrl, label: `${videocut.label} Demo` });
+      }
+    }
+    return items;
+  }, [product, isCuttable]);
+  const [slideIdx, setSlideIdx] = useState(0);
+
+  /* ─── Key Features Panel ─── */
+  const [panelOpen, setPanelOpen] = useState(false);
+  const panelAnim = useRef(new RNAnimated.Value(0)).current;
+  const togglePanel = useCallback(() => {
+    const next = panelOpen ? 0 : 1;
+    setPanelOpen(!panelOpen);
+    RNAnimated.spring(panelAnim, { toValue: next, useNativeDriver: true, speed: 14, bounciness: 3 }).start();
+  }, [panelOpen, panelAnim]);
+  const panelX = panelAnim.interpolate({ inputRange: [0, 1], outputRange: [-240, 0] });
+  const panelOpacity = panelAnim.interpolate({ inputRange: [0, 1], outputRange: [0, 1] });
+  const arrowRotation = panelAnim.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '180deg'] });
+
   if (!product) return <SafeAreaView style={styles.safe}><Text style={{ textAlign: 'center', marginTop: 60 }}>Product not found</Text></SafeAreaView>;
 
   const cartItem = cartItems.find(i => i.id === product.id);
@@ -102,8 +134,133 @@ export default function ProductDetailScreen() {
       <StatusBar barStyle="light-content" />
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ flexGrow: 1 }}>
         <View style={styles.imageContainer}>
-          <Image source={{ uri: product.image }} style={styles.image} resizeMode="cover" />
-          <LinearGradient colors={['rgba(0,0,0,0.4)', 'transparent']} style={styles.imageOverlay} />
+
+          {/* ─── Swipeable Image / Video Carousel ─── */}
+          <FlatList
+            data={carouselMedia}
+            keyExtractor={i => i.id}
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            onMomentumScrollEnd={e => setSlideIdx(Math.round(e.nativeEvent.contentOffset.x / screenW))}
+            getItemLayout={(_, i) => ({ length: screenW, offset: screenW * i, index: i })}
+            renderItem={({ item }) => {
+              // GIF — plays inline as an animated image
+              if (item.kind === 'gif') {
+                return (
+                  <View style={[pdStyles.slide, { width: screenW }]}>
+                    <Image source={{ uri: item.uri }} style={pdStyles.slideImage} resizeMode="contain" />
+                    <View style={pdStyles.slideBadge}>
+                      <Icon name="play-circle" size={13} color="#FFF" />
+                      <Text style={pdStyles.slideBadgeText}>{item.label}</Text>
+                    </View>
+                  </View>
+                );
+              }
+              // YouTube — thumbnail with play icon, taps open video modal
+              if (item.kind === 'youtube') {
+                return (
+                  <TouchableOpacity
+                    style={[pdStyles.slide, { width: screenW }]}
+                    activeOpacity={0.85}
+                    onPress={() => setVideoModal({ url: item.uri, label: item.label })}
+                  >
+                    <View style={pdStyles.ytSlide}>
+                      <Icon name="youtube" size={52} color="#FF0000" />
+                      <Text style={pdStyles.ytText}>Tap to play</Text>
+                      <Text style={pdStyles.ytSubText}>{item.label}</Text>
+                    </View>
+                  </TouchableOpacity>
+                );
+              }
+              // Photo (product image or cut style image)
+              return (
+                <View style={[pdStyles.slide, { width: screenW }]}>
+                  <Image source={{ uri: item.uri }} style={pdStyles.slideImage} resizeMode="cover" />
+                  {item.id !== 'main' && (
+                    <View style={pdStyles.slideBadge}>
+                      <Icon name="content-cut" size={11} color="#FFF" />
+                      <Text style={pdStyles.slideBadgeText}>{item.label}</Text>
+                    </View>
+                  )}
+                </View>
+              );
+            }}
+          />
+
+          {/* Dot indicators */}
+          {carouselMedia.length > 1 && (
+            <View style={pdStyles.dots}>
+              {carouselMedia.map((_, i) => (
+                <View key={i} style={[pdStyles.dot, slideIdx === i && pdStyles.dotActive]} />
+              ))}
+            </View>
+          )}
+
+          {/* ─── Key Features Slide-in Panel ─── */}
+          <RNAnimated.View style={[pdStyles.panel, { transform: [{ translateX: panelX }], opacity: panelOpacity }]} pointerEvents={panelOpen ? 'auto' : 'none'}>
+            <LinearGradient colors={['rgba(0,0,0,0.9)', 'rgba(0,0,0,0.78)']} style={pdStyles.panelInner}>
+              <Text style={pdStyles.panelTitle}>Key Features</Text>
+
+              {product.category && (
+                <View style={pdStyles.panelRow}>
+                  <Text style={pdStyles.panelLabel}>Category</Text>
+                  <Text style={pdStyles.panelValue}>{product.category}</Text>
+                </View>
+              )}
+              <View style={pdStyles.panelRow}>
+                <Text style={pdStyles.panelLabel}>Price</Text>
+                <Text style={pdStyles.panelValue}>{'\u20B9'}{product.price}/{product.unit}</Text>
+              </View>
+              {isCuttable && (
+                <View style={pdStyles.panelRow}>
+                  <Text style={pdStyles.panelLabel}>Cut Styles</Text>
+                  <Text style={pdStyles.panelValue}>{CUT_TYPE_OPTIONS.length} available</Text>
+                </View>
+              )}
+              {nutrition.calories > 0 && (
+                <View style={pdStyles.panelRow}>
+                  <Text style={pdStyles.panelLabel}>Calories</Text>
+                  <Text style={pdStyles.panelValue}>{nutrition.calories} kcal / 100g</Text>
+                </View>
+              )}
+              {nutrition.protein > 0 && (
+                <View style={pdStyles.panelRow}>
+                  <Text style={pdStyles.panelLabel}>Protein</Text>
+                  <Text style={pdStyles.panelValue}>{nutrition.protein}g / 100g</Text>
+                </View>
+              )}
+              {product.healthBenefits && product.healthBenefits.length > 0 && (
+                <View style={pdStyles.panelBenefits}>
+                  <Text style={pdStyles.panelLabel}>Benefits</Text>
+                  {product.healthBenefits.slice(0, 4).map((b, i) => (
+                    <View key={i} style={pdStyles.panelBenefitRow}>
+                      <Icon name="check-circle-outline" size={12} color="#66BB6A" />
+                      <Text style={pdStyles.panelBenefitText}>{b}</Text>
+                    </View>
+                  ))}
+                </View>
+              )}
+              {product.tags && product.tags.length > 0 && (
+                <View style={pdStyles.panelRow}>
+                  <Text style={pdStyles.panelLabel}>Preferences</Text>
+                  <Text style={pdStyles.panelValue}>{product.tags.join(', ')}</Text>
+                </View>
+              )}
+            </LinearGradient>
+          </RNAnimated.View>
+
+          {/* Toggle arrow on left edge */}
+          <TouchableOpacity style={pdStyles.toggleBtn} onPress={togglePanel} activeOpacity={0.75}>
+            <RNAnimated.View style={{ transform: [{ rotate: arrowRotation }] }}>
+              <Icon name="chevron-right" size={20} color="#FFF" />
+            </RNAnimated.View>
+          </TouchableOpacity>
+
+          {/* Header gradient for readability */}
+          <LinearGradient colors={['rgba(0,0,0,0.45)', 'transparent']} style={styles.imageOverlay} pointerEvents="none" />
+
+          {/* Back / Fav / Share buttons (unchanged) */}
           <SafeAreaView edges={['top']} style={styles.imageHeaderSafe}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
               <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
@@ -508,10 +665,10 @@ export default function ProductDetailScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: COLORS.background },
-  imageContainer: { width: '100%', height: 250, position: 'relative' },
+  imageContainer: { width: '100%', height: 300, position: 'relative' },
   image: { width: '100%', height: '100%' },
-  imageOverlay: { position: 'absolute', top: 0, left: 0, right: 0, height: 80 },
-  imageHeaderSafe: { position: 'absolute', top: 0, left: 0, right: 0 },
+  imageOverlay: { position: 'absolute', top: 0, left: 0, right: 0, height: 80, zIndex: 8 },
+  imageHeaderSafe: { position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10 },
   backBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(0,0,0,0.3)', justifyContent: 'center', alignItems: 'center', marginLeft: SPACING.base, marginTop: SPACING.sm },
   content: { padding: SPACING.base },
   infoRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
@@ -656,4 +813,42 @@ const styles = StyleSheet.create({
   addedToastText: { fontSize: 14, fontWeight: '700', color: '#FFF', flex: 1 },
   addedToastBtn: { backgroundColor: 'rgba(255,255,255,0.25)', borderRadius: RADIUS.md, paddingHorizontal: 12, paddingVertical: 6 },
   addedToastBtnText: { fontSize: 12, fontWeight: '700', color: '#FFF' },
+});
+
+/* ─── Carousel + Features Panel Styles ─── */
+const pdStyles = StyleSheet.create({
+  /* Carousel slides */
+  slide: { height: 300, position: 'relative', backgroundColor: '#111' },
+  slideImage: { width: '100%', height: '100%' },
+  slideBadge: {
+    position: 'absolute', bottom: 14, left: 14,
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: RADIUS.full,
+    paddingHorizontal: 10, paddingVertical: 5,
+  },
+  slideBadgeText: { fontSize: 11, fontWeight: '700', color: '#FFF' },
+  /* YouTube placeholder */
+  ytSlide: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#1a1a1a' },
+  ytText: { fontSize: 14, fontWeight: '700', color: '#FFF', marginTop: 10 },
+  ytSubText: { fontSize: 11, color: 'rgba(255,255,255,0.5)', marginTop: 4 },
+  /* Dot indicators */
+  dots: { position: 'absolute', bottom: 14, right: 14, flexDirection: 'row', gap: 5, zIndex: 5 },
+  dot: { width: 7, height: 7, borderRadius: 3.5, backgroundColor: 'rgba(255,255,255,0.4)' },
+  dotActive: { width: 22, backgroundColor: '#FFF' },
+  /* Key Features panel */
+  panel: { position: 'absolute', top: 0, left: 0, bottom: 0, width: 230, zIndex: 6 },
+  panelInner: { flex: 1, paddingTop: 82, paddingHorizontal: 18, paddingBottom: 18 },
+  panelTitle: { fontSize: 17, fontWeight: '900', color: '#FFF', marginBottom: 18, letterSpacing: 0.3 },
+  panelRow: { marginBottom: 14, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.08)', paddingBottom: 10 },
+  panelLabel: { fontSize: 10, fontWeight: '600', color: 'rgba(255,255,255,0.5)', marginBottom: 3, textTransform: 'uppercase', letterSpacing: 0.5 },
+  panelValue: { fontSize: 15, fontWeight: '800', color: '#FFF' },
+  panelBenefits: { marginBottom: 14, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.08)', paddingBottom: 10 },
+  panelBenefitRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 6, marginTop: 6 },
+  panelBenefitText: { fontSize: 12, color: 'rgba(255,255,255,0.8)', lineHeight: 17, flex: 1 },
+  /* Toggle arrow */
+  toggleBtn: {
+    position: 'absolute', bottom: '40%' as any, left: 0, zIndex: 7,
+    width: 30, height: 46, borderTopRightRadius: 12, borderBottomRightRadius: 12,
+    backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center',
+  },
 });

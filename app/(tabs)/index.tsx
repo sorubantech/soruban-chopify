@@ -2,7 +2,7 @@ import React, { useMemo, useRef, useEffect, useState, useCallback } from 'react'
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   Image, useWindowDimensions, StatusBar, FlatList, Alert,
-  Animated as RNAnimated, Modal,
+  Animated as RNAnimated, Modal, BackHandler,
 } from 'react-native';
 import Icon from '@expo/vector-icons/MaterialCommunityIcons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -25,6 +25,7 @@ import { useDiet } from '@/context/DietContext';
 import { SPECIAL_PLANS } from '@/data/specialPlans';
 
 const CATEGORIES = [
+  { key: 'All', label: 'All', image: 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=200&q=80', color: '#E8F5E9' },
   { key: 'Vegetables', label: 'Vegetables', image: 'https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=200&q=80', color: '#E8F5E9' },
   { key: 'Fruits', label: 'Fruits', image: 'https://images.unsplash.com/photo-1619566636858-adf3ef46400b?q=80&w=870&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D', color: '#E8F5E9' },
   { key: 'Healthy Snacks', label: 'Healthy Snacks', image: 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=200&q=80', color: '#E8F5E9' },
@@ -32,12 +33,13 @@ const CATEGORIES = [
   { key: 'Sports Nutrition', label: 'Sports & Gym', image: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=200&q=80', color: '#FCE4EC' },
 ];
 
+
 const OFFERS = [
-  { id: '1', title: 'FLAT 50% OFF', subtitle: '& FREE Delivery', desc: 'On your first order of fresh cut veggies', bg: ['#2E7D32', '#43A047'] as const, icon: 'leaf' as const, route: '/browse', params: { category: 'Vegetables' }, btn: 'Order Now', accent: '#81C784' },
-  { id: '2', title: 'FREE Cutting', subtitle: 'On First Order', desc: 'Choose any cut style absolutely free!', bg: ['#0D47A1', '#1565C0'] as const, icon: 'content-cut' as const, route: null, params: null, btn: '', accent: '#64B5F6' },
-  { id: '3', title: 'Dish Packs', subtitle: 'from \u20B995', desc: 'Sambar, Biryani & more - pre-cut for your dish!', bg: ['#BF360C', '#E65100'] as const, icon: 'food-variant' as const, route: '/(tabs)/packs', params: null, btn: 'View Packs', accent: '#FF8A65' },
-  { id: '4', title: 'EAT RIGHT', subtitle: 'Win up to \u20B9300', desc: 'Healthy diet packs for fitness lovers', bg: ['#4A148C', '#7B1FA2'] as const, icon: 'heart-pulse' as const, route: '/browse', params: { category: 'Diet Foods' }, btn: 'Explore', accent: '#CE93D8' },
-  { id: '5', title: 'Buy 2 Get 1', subtitle: 'FREE', desc: 'On all seasonal fruit packs this week!', bg: ['#B71C1C', '#C62828'] as const, icon: 'fruit-watermelon' as const, route: '/browse', params: { category: 'Fruits' }, btn: 'Shop Now', accent: '#EF9A9A' },
+  { id: '1', title: 'CHOPIFY', subtitle: 'FRESH PASS', price: '\u20B91 for 3 months', desc: 'Unlimited free cutting & priority delivery', bg: ['#FDF6E3', '#F5E6C8', '#EDD9AD'] as const, headerBg: '#FDF6E3', icon: 'content-cut' as const, route: '/subscription-setup', params: null, btn: 'Join Fresh Pass now', accent: '#B8860B', accentLight: '#D4A84320', titleColor: '#C5941A', ctaBg: '#2D2D2D', badge: 'GOLD' },
+  { id: '2', title: 'FLAT 50%', subtitle: 'OFF', price: '& FREE Delivery', desc: 'On your first order of fresh cut veggies', bg: ['#E8F5E9', '#C8E6C9', '#A5D6A7'] as const, headerBg: '#E8F5E9', icon: 'leaf' as const, route: '/browse', params: { category: 'Vegetables' }, btn: 'Order Now', accent: '#2E7D32', accentLight: '#2E7D3220', titleColor: '#1B5E20', ctaBg: '#2E7D32', badge: 'NEW' },
+  { id: '3', title: 'FREE', subtitle: 'CUTTING', price: 'On First Order', desc: 'Choose any cut style absolutely free!', bg: ['#E3F2FD', '#BBDEFB', '#90CAF9'] as const, headerBg: '#E3F2FD', icon: 'content-cut' as const, route: null, params: null, btn: 'Try Now', accent: '#0D47A1', accentLight: '#0D47A120', titleColor: '#0D47A1', ctaBg: '#0D47A1', badge: 'FREE' },
+  { id: '4', title: 'DISH', subtitle: 'PACKS', price: 'from \u20B995', desc: 'Sambar, Biryani & more - pre-cut for your dish!', bg: ['#FFF3E0', '#FFE0B2', '#FFCC80'] as const, headerBg: '#FFF3E0', icon: 'food-variant' as const, route: '/(tabs)/packs', params: null, btn: 'View Packs', accent: '#E65100', accentLight: '#E6510020', titleColor: '#BF360C', ctaBg: '#E65100', badge: 'HOT' },
+  { id: '5', title: 'BUY 2', subtitle: 'GET 1 FREE', price: 'This week only!', desc: 'On all seasonal fruit packs this week!', bg: ['#F3E5F5', '#E1BEE7', '#CE93D8'] as const, headerBg: '#F3E5F5', icon: 'fruit-watermelon' as const, route: '/browse', params: { category: 'Fruits' }, btn: 'Shop Now', accent: '#6A1B9A', accentLight: '#6A1B9A20', titleColor: '#4A148C', ctaBg: '#6A1B9A', badge: '2+1' },
 ];
 
 const POPULAR_IDS = ['1', '4', '13', '7', '19', '22', '11', '23'];
@@ -196,32 +198,225 @@ const welcomeStyles = StyleSheet.create({
   closeBtn: { position: 'absolute', top: 12, right: 12, width: 32, height: 32, borderRadius: 16, backgroundColor: 'rgba(0,0,0,0.3)', justifyContent: 'center', alignItems: 'center' },
 });
 
-/* ─── Offers Carousel ─── */
-function OffersCarousel({ width }: { width: number }) {
+/* ─── Shimmer Light Sweep ─── */
+function ShimmerSweep({ accent }: { accent: string }) {
+  const translateX = useRef(new RNAnimated.Value(-200)).current;
+  useEffect(() => {
+    const loop = () => {
+      translateX.setValue(-200);
+      RNAnimated.timing(translateX, { toValue: 500, duration: 2800, delay: 1500, useNativeDriver: true }).start(() => loop());
+    };
+    loop();
+  }, [translateX]);
+  return (
+    <RNAnimated.View style={{
+      position: 'absolute', top: 0, bottom: 0, width: 80, zIndex: 0,
+      transform: [{ translateX }, { skewX: '-15deg' }],
+      backgroundColor: `${accent}08`,
+    }} />
+  );
+}
+
+/* ─── Glowing Icon Ring ─── */
+function GlowingIconRing({ accent, icon }: { accent: string; icon: string }) {
+  const glowScale = useRef(new RNAnimated.Value(1)).current;
+  const glowOp = useRef(new RNAnimated.Value(0.3)).current;
+  useEffect(() => {
+    const pulse = () => {
+      RNAnimated.parallel([
+        RNAnimated.sequence([
+          RNAnimated.timing(glowScale, { toValue: 1.25, duration: 1400, useNativeDriver: true }),
+          RNAnimated.timing(glowScale, { toValue: 1, duration: 1400, useNativeDriver: true }),
+        ]),
+        RNAnimated.sequence([
+          RNAnimated.timing(glowOp, { toValue: 0.6, duration: 1400, useNativeDriver: true }),
+          RNAnimated.timing(glowOp, { toValue: 0.25, duration: 1400, useNativeDriver: true }),
+        ]),
+      ]).start(() => pulse());
+    };
+    pulse();
+  }, [glowScale, glowOp]);
+  return (
+    <View style={{ alignItems: 'center', justifyContent: 'center', marginBottom: 6 }}>
+      <RNAnimated.View style={{
+        position: 'absolute', width: 56, height: 56, borderRadius: 28,
+        backgroundColor: accent, opacity: glowOp, transform: [{ scale: glowScale }],
+      }} />
+      <View style={{
+        width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.25)',
+        alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.4)',
+      }}>
+        <Icon name={icon as any} size={22} color={accent} />
+      </View>
+    </View>
+  );
+}
+
+/* ─── Floating Badge Chip ─── */
+function FloatingBadge({ label, accent }: { label: string; accent: string }) {
+  const bounceY = useRef(new RNAnimated.Value(-4)).current;
+  useEffect(() => {
+    const float = () => {
+      RNAnimated.sequence([
+        RNAnimated.timing(bounceY, { toValue: 2, duration: 1600, useNativeDriver: true }),
+        RNAnimated.timing(bounceY, { toValue: -4, duration: 1600, useNativeDriver: true }),
+      ]).start(() => float());
+    };
+    float();
+  }, [bounceY]);
+  return (
+    <RNAnimated.View style={{
+      position: 'absolute', top: 14, right: 14, zIndex: 10,
+      transform: [{ translateY: bounceY }],
+    }}>
+      <View style={{
+        backgroundColor: accent, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5,
+        shadowColor: accent, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.35, shadowRadius: 6, elevation: 5,
+      }}>
+        <Text style={{ fontSize: 10, fontWeight: '900', color: '#FFF', letterSpacing: 1.5 }}>{label}</Text>
+      </View>
+    </RNAnimated.View>
+  );
+}
+
+/* ─── Sparkle Dot (twinkling) ─── */
+function Sparkle({ style, delay = 0 }: { style: any; delay?: number }) {
+  const opacity = useRef(new RNAnimated.Value(0.15)).current;
+  const scale = useRef(new RNAnimated.Value(0.6)).current;
+  useEffect(() => {
+    const loop = () => {
+      RNAnimated.parallel([
+        RNAnimated.sequence([
+          RNAnimated.timing(opacity, { toValue: 1, duration: 600, delay, useNativeDriver: true }),
+          RNAnimated.timing(opacity, { toValue: 0.1, duration: 800, useNativeDriver: true }),
+        ]),
+        RNAnimated.sequence([
+          RNAnimated.timing(scale, { toValue: 1.2, duration: 600, delay, useNativeDriver: true }),
+          RNAnimated.timing(scale, { toValue: 0.6, duration: 800, useNativeDriver: true }),
+        ]),
+      ]).start(() => loop());
+    };
+    loop();
+  }, [delay, opacity, scale]);
+  return <RNAnimated.View style={[style, { opacity, transform: [{ scale }] }]} />;
+}
+
+/* ─── Animated Dot ─── */
+function AnimatedDot({ scrollX, index, width: screenW }: { scrollX: RNAnimated.Value; index: number; width: number }) {
+  const dotW = scrollX.interpolate({
+    inputRange: [(index - 1) * screenW, index * screenW, (index + 1) * screenW],
+    outputRange: [6, 24, 6], extrapolate: 'clamp',
+  });
+  const dotOp = scrollX.interpolate({
+    inputRange: [(index - 1) * screenW, index * screenW, (index + 1) * screenW],
+    outputRange: [0.3, 1, 0.3], extrapolate: 'clamp',
+  });
+  return <RNAnimated.View style={[offerCardStyles.dot, { width: dotW, opacity: dotOp, backgroundColor: 'rgba(0,0,0,0.6)' }]} />;
+}
+
+/* ─── Card Content ─── */
+function CardContent({ item, isActive }: { item: typeof OFFERS[0]; isActive: boolean }) {
+  const anim = useRef(new RNAnimated.Value(0)).current;
+  const priceScale = useRef(new RNAnimated.Value(0.8)).current;
+  const ctaOp = useRef(new RNAnimated.Value(0)).current;
+  const ctaY = useRef(new RNAnimated.Value(12)).current;
+
+  useEffect(() => {
+    if (isActive) {
+      anim.setValue(0); priceScale.setValue(0.8);
+      ctaOp.setValue(0); ctaY.setValue(12);
+      RNAnimated.sequence([
+        RNAnimated.timing(anim, { toValue: 1, duration: 450, useNativeDriver: true }),
+        RNAnimated.parallel([
+          RNAnimated.spring(priceScale, { toValue: 1, useNativeDriver: true, speed: 12, bounciness: 8 }),
+          RNAnimated.timing(ctaOp, { toValue: 1, duration: 350, useNativeDriver: true }),
+          RNAnimated.spring(ctaY, { toValue: 0, useNativeDriver: true, speed: 14, bounciness: 4 }),
+        ]),
+      ]).start();
+    }
+  }, [isActive]);
+
+  const fadeSlide = { opacity: anim, transform: [{ translateY: anim.interpolate({ inputRange: [0, 1], outputRange: [18, 0] }) }] };
+
+  return (
+    <>
+      {/* Sparkle particles */}
+      <Sparkle style={{ position: 'absolute', top: 22, left: '15%', width: 5, height: 5, borderRadius: 2.5, backgroundColor: `${item.accent}80` }} delay={0} />
+      <Sparkle style={{ position: 'absolute', top: 55, right: '22%', width: 4, height: 4, borderRadius: 2, backgroundColor: `${item.accent}60` }} delay={400} />
+      <Sparkle style={{ position: 'absolute', bottom: 60, left: '28%', width: 4, height: 4, borderRadius: 2, backgroundColor: `${item.accent}70` }} delay={200} />
+      <Sparkle style={{ position: 'absolute', bottom: 35, right: '30%', width: 5, height: 5, borderRadius: 2.5, backgroundColor: `${item.accent}50` }} delay={600} />
+      <Sparkle style={{ position: 'absolute', top: 40, left: '48%', width: 3, height: 3, borderRadius: 1.5, backgroundColor: `${item.accent}60` }} delay={800} />
+      <Sparkle style={{ position: 'absolute', bottom: 80, left: '58%', width: 4, height: 4, borderRadius: 2, backgroundColor: `${item.accent}50` }} delay={350} />
+
+      {/* Title + subtitle */}
+      <RNAnimated.View style={[offerCardStyles.content, fadeSlide]}>
+        <Text style={[offerCardStyles.title, { color: item.titleColor }]}>{item.title}</Text>
+        <Text style={[offerCardStyles.subtitle, { color: item.titleColor }]}>{item.subtitle}</Text>
+      </RNAnimated.View>
+
+      {/* Price */}
+      <RNAnimated.View style={{ transform: [{ scale: priceScale }], zIndex: 2, marginTop: 10 }}>
+        <Text style={[offerCardStyles.priceText, { color: item.accent }]}>{item.price}</Text>
+      </RNAnimated.View>
+
+      {/* CTA button */}
+      <RNAnimated.View style={{ opacity: ctaOp, transform: [{ translateY: ctaY }], zIndex: 2, marginTop: 16 }}>
+        <View style={[offerCardStyles.cta, { backgroundColor: item.ctaBg }]}>
+          <Text style={offerCardStyles.ctaText}>{item.btn}</Text>
+          <Icon name="chevron-right" size={14} color="#FFF" />
+        </View>
+      </RNAnimated.View>
+    </>
+  );
+}
+
+/* ─── ScrollReveal ─── */
+function ScrollReveal({ children, delay = 0 }: { children: React.ReactNode; delay?: number }) {
+  const opacity = useRef(new RNAnimated.Value(0)).current;
+  const translateY = useRef(new RNAnimated.Value(35)).current;
+  const done = useRef(false);
+  const onLayout = useCallback(() => {
+    if (done.current) return;
+    done.current = true;
+    RNAnimated.parallel([
+      RNAnimated.timing(opacity, { toValue: 1, duration: 500, delay, useNativeDriver: true }),
+      RNAnimated.spring(translateY, { toValue: 0, delay, useNativeDriver: true, speed: 12, bounciness: 4 }),
+    ]).start();
+  }, [opacity, translateY, delay]);
+  return (
+    <RNAnimated.View onLayout={onLayout} style={{ opacity, transform: [{ translateY }] }}>
+      {children}
+    </RNAnimated.View>
+  );
+}
+
+/* ─── Offers Carousel (full-bleed, animated) ─── */
+function OffersCarousel({ width, activeIndex, onIndexChange }: { width: number; activeIndex: number; onIndexChange: (i: number) => void }) {
   const flatListRef = useRef<FlatList>(null);
-  const [activeIndex, setActiveIndex] = useState(0);
   const indexRef = useRef(0);
   const router = useRouter();
+  const scrollX = useRef(new RNAnimated.Value(0)).current;
 
   useEffect(() => {
     const timer = setInterval(() => {
       const next = (indexRef.current + 1) % OFFERS.length;
       indexRef.current = next;
+      onIndexChange(next);
       flatListRef.current?.scrollToOffset({ offset: next * width, animated: true });
     }, 3500);
     return () => clearInterval(timer);
-  }, [width]);
+  }, [width, onIndexChange]);
 
   const onScroll = useCallback((e: any) => {
     const idx = Math.round(e.nativeEvent.contentOffset.x / width);
     if (idx !== indexRef.current && idx >= 0 && idx < OFFERS.length) {
       indexRef.current = idx;
-      setActiveIndex(idx);
+      onIndexChange(idx);
     }
-  }, [width]);
+  }, [width, onIndexChange]);
 
   return (
-    <View style={styles.offersSection}>
+    <View>
       <FlatList
         ref={flatListRef}
         data={OFFERS}
@@ -229,46 +424,67 @@ function OffersCarousel({ width }: { width: number }) {
         horizontal
         pagingEnabled
         showsHorizontalScrollIndicator={false}
-        onScroll={onScroll}
+        onScroll={RNAnimated.event(
+          [{ nativeEvent: { contentOffset: { x: scrollX } } }],
+          { useNativeDriver: false, listener: onScroll }
+        )}
         scrollEventThrottle={16}
         getItemLayout={(_, index) => ({ length: width, offset: width * index, index })}
-        renderItem={({ item }) => (
-          <View style={{ width, paddingHorizontal: SPACING.base }}>
-            <TouchableOpacity
-              activeOpacity={0.9}
-              onPress={() => { if (item.route) router.push(item.params ? { pathname: item.route, params: item.params } as any : item.route as any); }}
-            >
-              <LinearGradient colors={item.bg} style={styles.offerCard} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
-                {/* Decorative circles */}
-                <View style={[styles.offerDecor1, { backgroundColor: item.accent }]} />
-                <View style={[styles.offerDecor2, { backgroundColor: item.accent }]} />
-                <View style={{ flex: 1, zIndex: 1 }}>
-                  <Text style={styles.offerTitle}>{item.title}</Text>
-                  {item.subtitle ? <Text style={styles.offerSubtitle}>{item.subtitle}</Text> : null}
-                  <Text style={styles.offerDesc}>{item.desc}</Text>
-                  {item.btn ? (
-                    <View style={styles.offerBtn}>
-                      <Text style={styles.offerBtnText}>{item.btn}</Text>
-                      <Icon name="chevron-right" size={14} color={COLORS.primary} />
-                    </View>
-                  ) : null}
-                </View>
-                <View style={[styles.offerIconWrap, { zIndex: 1 }]}>
-                  <Icon name={item.icon} size={48} color="rgba(255,255,255,0.5)" />
-                </View>
+        renderItem={({ item, index }) => {
+          const handlePress = () => {
+            if (item.route) router.push(item.params ? { pathname: item.route, params: item.params } as any : item.route as any);
+          };
+          const inputRange = [(index - 1) * width, index * width, (index + 1) * width];
+          const cardScale = scrollX.interpolate({ inputRange, outputRange: [0.93, 1, 0.93], extrapolate: 'clamp' });
+          const cardOpacity = scrollX.interpolate({ inputRange, outputRange: [0.5, 1, 0.5], extrapolate: 'clamp' });
+
+          return (
+            <TouchableOpacity style={{ width }} activeOpacity={0.9} onPress={handlePress}>
+              <RNAnimated.View style={{ transform: [{ scale: cardScale }], opacity: cardOpacity }}>
+              <LinearGradient colors={[item.bg[0], item.bg[1], item.bg[2]]} style={offerCardStyles.card} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
+                {/* Soft decorative circles */}
+                <View style={[offerCardStyles.decor1, { backgroundColor: item.accent }]} />
+                <View style={[offerCardStyles.decor2, { backgroundColor: item.accent }]} />
+                <View style={offerCardStyles.decor3} />
+                <CardContent item={item} isActive={activeIndex === index} />
               </LinearGradient>
+              </RNAnimated.View>
             </TouchableOpacity>
-          </View>
-        )}
+          );
+        }}
       />
-      <View style={styles.offerDots}>
+      <View style={offerCardStyles.dots}>
         {OFFERS.map((_, i) => (
-          <View key={i} style={[styles.offerDot, activeIndex === i && styles.offerDotActive]} />
+          <AnimatedDot key={i} scrollX={scrollX} index={i} width={width} />
         ))}
       </View>
     </View>
   );
 }
+
+const offerCardStyles = StyleSheet.create({
+  card: {
+    minHeight: 240, overflow: 'hidden', position: 'relative',
+    alignItems: 'center', justifyContent: 'center',
+    paddingVertical: 30, paddingHorizontal: 24,
+  },
+  decor1: { position: 'absolute', top: -50, right: -50, width: 180, height: 180, borderRadius: 90, opacity: 0.12 },
+  decor2: { position: 'absolute', bottom: -60, left: -40, width: 160, height: 160, borderRadius: 80, opacity: 0.08 },
+  decor3: { position: 'absolute', top: '35%' as any, right: -80, width: 200, height: 200, borderRadius: 100, backgroundColor: 'rgba(255,255,255,0.06)' },
+  content: { alignItems: 'center', zIndex: 2 },
+  title: { fontSize: 38, fontWeight: '900', letterSpacing: 4, textAlign: 'center' },
+  subtitle: { fontSize: 28, fontWeight: '900', letterSpacing: 1, textAlign: 'center', marginTop: -4 },
+  priceText: { fontSize: 17, fontWeight: '800', textAlign: 'center' },
+  cta: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    borderRadius: RADIUS.full,
+    paddingHorizontal: 20, paddingVertical: 10,
+  },
+  ctaText: { fontSize: 13, fontWeight: '700', color: '#FFF' },
+  dots: { flexDirection: 'row', justifyContent: 'center', gap: 5, paddingVertical: 12 },
+  dot: { height: 6, borderRadius: 3 },
+  dotActive: {},
+});
 
 /* ─── Add To Cart Button ─── */
 function AddToCartButton({ item }: { item: any }) {
@@ -348,6 +564,23 @@ export default function HomeScreen() {
   const { userName, userCategory, lifestyle, healthGoals, gender } = useDiet();
   const [lifestyleTab, setLifestyleTab] = useState<'healthy' | 'diet' | 'sports'>('healthy');
   const [showWelcome, setShowWelcome] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState('All');
+  const [carouselIndex, setCarouselIndex] = useState(0);
+  const scrollY = useRef(new RNAnimated.Value(0)).current;
+  /* Filters hide AFTER carousel — starts at 180px, done by 280px */
+  const filterHeight = scrollY.interpolate({
+    inputRange: [180, 280],
+    outputRange: [44, 0],
+    extrapolate: 'clamp',
+  });
+  const filterOpacity = scrollY.interpolate({
+    inputRange: [180, 260],
+    outputRange: [1, 0],
+    extrapolate: 'clamp',
+  });
+  const onCarouselChange = useCallback((idx: number) => {
+    setCarouselIndex(idx);
+  }, []);
 
   /* ─── Personalized "For You" recommendations ─── */
   const forYouPlans = useMemo(() => {
@@ -379,6 +612,12 @@ export default function HomeScreen() {
     return productsData.filter(p => productIds.has(p.id)).slice(0, 8);
   }, [userCategory, forYouPlans]);
 
+  const isAllCategory = selectedCategory === 'All';
+  const categoryProducts = useMemo(() => {
+    if (isAllCategory) return [];
+    return productsData.filter(p => p.category === selectedCategory);
+  }, [selectedCategory, isAllCategory]);
+
   const popularProducts = useMemo(() => productsData.filter(p => POPULAR_IDS.includes(p.id)), []);
   const healthySnacks = useMemo(() => productsData.filter(p => p.category === 'Healthy Snacks').slice(0, 6), []);
   const dietFoods = useMemo(() => productsData.filter(p => p.category === 'Diet Foods').slice(0, 6), []);
@@ -400,6 +639,18 @@ export default function HomeScreen() {
     }, 1500);
     return () => clearTimeout(timer);
   }, []);
+
+  // Back button: if specific category selected, go back to "All" instead of exiting
+  useEffect(() => {
+    const handler = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (selectedCategory !== 'All') {
+        setSelectedCategory('All');
+        return true; // handled — don't exit
+      }
+      return false; // default behavior
+    });
+    return () => handler.remove();
+  }, [selectedCategory]);
 
   /* ─── Smart Reorder: analyze order frequency patterns ─── */
   const smartReorder = useMemo(() => {
@@ -483,6 +734,7 @@ export default function HomeScreen() {
   const onMainScroll = useCallback((e: any) => {
     handleScroll(e);
     const y = e.nativeEvent.contentOffset.y;
+    scrollY.setValue(y);
     // Show sticky when carousel is scrolled past (~200px)
     if (y > 190 && !stickyRef.current) {
       stickyRef.current = true;
@@ -491,101 +743,34 @@ export default function HomeScreen() {
       stickyRef.current = false;
       setStickyVisible(false);
     }
-  }, [handleScroll]);
+  }, [handleScroll, scrollY]);
 
   return (
-    <SafeAreaView style={[styles.safe, themed.safeArea]} edges={['top', 'bottom']}>
+    <View style={styles.safe}>
+    <SafeAreaView style={[{ flex: 1 }, themed.safeArea]} edges={['top', 'bottom']}>
       <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
-
-      {/* ─── Header ─── */}
-      <LinearGradient colors={themed.headerGradient} style={styles.header}>
-        {/* Title row — collapses on scroll */}
-        {!stickyVisible && (
-          <View style={styles.headerRow}>
-            <View>
-              <Text style={[styles.headerTitle, themed.textPrimary]}>Chopify</Text>
-              <Text style={styles.headerSub}>Fresh cut, ready to cook!</Text>
-            </View>
-            <View style={styles.headerActions}>
-              <TouchableOpacity onPress={() => router.push('/wallet')} style={styles.walletBtn}>
-                <View style={styles.walletIcon}>
-                  <Icon name="wallet-outline" size={20} color={COLORS.text.primary} />
-                </View>
-                <Text style={styles.walletText}>{'\u20B9'}0</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.headerIconBtn} onPress={() => router.push('/notifications')}>
-                <Icon name="bell-outline" size={24} color={COLORS.text.primary} />
-                <View style={styles.notifDot} />
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => router.push('/(tabs)/profile')} style={styles.profileBtn}>
-                {user?.avatar ? (
-                  <Image source={{ uri: user.avatar }} style={styles.profileIconImg} resizeMode="cover" />
-                ) : (
-                  <View style={styles.profileIcon}>
-                    <Icon name="account" size={20} color="#FFF" />
-                  </View>
-                )}
-              </TouchableOpacity>
-            </View>
-          </View>
-        )}
-
-        {/* Search bar — always visible */}
-        <TouchableOpacity
-          style={styles.searchBar}
-          onPress={() => router.push('/search')}
-          activeOpacity={0.9}
-        >
-          <Icon name="magnify" size={20} color={COLORS.text.muted} />
-          <AnimatedSearchPlaceholder />
-        </TouchableOpacity>
-      </LinearGradient>
 
       <View style={{ flex: 1 }}>
       {/* ─── Sticky Categories + Filters overlay (shown when scrolled past carousel) ─── */}
       {stickyVisible && (
         <View style={styles.stickyOverlay}>
+          <TouchableOpacity style={[styles.searchBar, { marginHorizontal: SPACING.base, marginBottom: SPACING.xs }]} onPress={() => router.push('/search')} activeOpacity={0.9}>
+            <Icon name="magnify" size={20} color={COLORS.text.muted} />
+            <View style={{ flex: 1 }}><AnimatedSearchPlaceholder /></View>
+            <Icon name="microphone-outline" size={20} color={COLORS.text.muted} />
+          </TouchableOpacity>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryScroll}>
             {CATEGORIES.map(cat => (
               <BounceCard
                 key={cat.key}
                 style={styles.categoryCard}
-                onPress={() => router.push({ pathname: '/browse', params: { category: cat.key } })}
+                onPress={() => setSelectedCategory(cat.key)}
               >
-                <View style={styles.categoryImageWrap}>
+                <View style={[styles.categoryImageWrap, selectedCategory === cat.key && { borderColor: COLORS.primary, borderWidth: 3 }]}>
                   <Image source={{ uri: cat.image }} style={styles.categoryImage} resizeMode="cover" />
                 </View>
-                <Text style={[styles.categoryLabel, themed.textPrimary]}>{cat.label}</Text>
+                <Text style={[styles.categoryLabel, themed.textPrimary, selectedCategory === cat.key && { color: COLORS.primary }]}>{cat.label}</Text>
               </BounceCard>
-            ))}
-          </ScrollView>
-
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterChipsScroll}>
-            <TouchableOpacity
-              style={styles.filterChipPrimary}
-              activeOpacity={0.8}
-              onPress={() => router.push('/browse' as any)}
-            >
-              <Icon name="tune-variant" size={15} color={COLORS.text.primary} />
-              <Text style={styles.filterChipPrimaryText}>Filters</Text>
-            </TouchableOpacity>
-            {([
-              { label: 'Under ₹150', icon: 'tag-outline' as const, params: { maxPrice: '150' } },
-              { label: 'Fresh Cut', icon: 'content-cut' as const, params: { tag: 'fresh-cut' } },
-              { label: 'Rating 4.0+', icon: 'star' as const, params: { minRating: '4' } },
-              { label: 'Offers', icon: 'percent-outline' as const, params: { hasDiscount: 'true' } },
-              { label: 'Organic', icon: 'leaf' as const, params: { tag: 'organic' } },
-            ] as const).map((chip) => (
-              <TouchableOpacity
-                key={chip.label}
-                style={styles.filterChip}
-                activeOpacity={0.8}
-                onPress={() => router.push({ pathname: '/browse', params: chip.params } as any)}
-              >
-                <Icon name={chip.icon} size={13} color={COLORS.text.secondary} />
-                <Text style={styles.filterChipText}>{chip.label}</Text>
-                <Icon name="chevron-down" size={13} color={COLORS.text.muted} />
-              </TouchableOpacity>
             ))}
           </ScrollView>
         </View>
@@ -598,8 +783,57 @@ export default function HomeScreen() {
         scrollEventThrottle={16}
       >
 
-        {/* ━━━ 1. OFFERS CAROUSEL ━━━ */}
-        <OffersCarousel width={width} />
+        {/* ━━━ HEADER + CAROUSEL — one unified block with same bg, scrolls together ━━━ */}
+        {isAllCategory && (
+          <View style={{ backgroundColor: OFFERS[carouselIndex].headerBg }}>
+            <View style={styles.header}>
+              <View style={styles.headerRow}>
+                <View>
+                  <Text style={[styles.headerTitle, themed.textPrimary]}>Chopify</Text>
+                  <Text style={styles.headerSub}>Fresh cut, ready to cook!</Text>
+                </View>
+                <View style={styles.headerActions}>
+                  <TouchableOpacity onPress={() => router.push('/wallet')} style={styles.walletBtn}>
+                    <View style={styles.walletIcon}>
+                      <Icon name="wallet-outline" size={20} color={COLORS.text.primary} />
+                    </View>
+                    <Text style={styles.walletText}>{'\u20B9'}0</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.headerIconBtn} onPress={() => router.push('/notifications')}>
+                    <Icon name="bell-outline" size={24} color={COLORS.text.primary} />
+                    <View style={styles.notifDot} />
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => router.push('/(tabs)/profile')} style={styles.profileBtn}>
+                    {user?.avatar ? (
+                      <Image source={{ uri: user.avatar }} style={styles.profileIconImg} resizeMode="cover" />
+                    ) : (
+                      <View style={styles.profileIcon}>
+                        <Icon name="account" size={20} color="#FFF" />
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              </View>
+              <TouchableOpacity style={styles.searchBar} onPress={() => router.push('/search')} activeOpacity={0.9}>
+                <Icon name="magnify" size={20} color={COLORS.text.muted} />
+                <View style={{ flex: 1 }}><AnimatedSearchPlaceholder /></View>
+                <Icon name="microphone-outline" size={20} color={COLORS.text.muted} />
+              </TouchableOpacity>
+            </View>
+            <OffersCarousel width={width} activeIndex={carouselIndex} onIndexChange={onCarouselChange} />
+          </View>
+        )}
+
+        {/* Search bar when specific category selected */}
+        {!isAllCategory && (
+          <View style={{ paddingHorizontal: SPACING.base, paddingVertical: SPACING.xs }}>
+            <TouchableOpacity style={styles.searchBar} onPress={() => router.push('/search')} activeOpacity={0.9}>
+              <Icon name="magnify" size={20} color={COLORS.text.muted} />
+              <View style={{ flex: 1 }}><AnimatedSearchPlaceholder /></View>
+              <Icon name="microphone-outline" size={20} color={COLORS.text.muted} />
+            </TouchableOpacity>
+          </View>
+        )}
 
         {/* ━━━ 2. CATEGORIES + FILTERS (in-flow, hidden when sticky overlay is active) ━━━ */}
         <View style={[styles.stickySection, stickyVisible && styles.stickySectionHidden]}>
@@ -608,16 +842,18 @@ export default function HomeScreen() {
               <BounceCard
                 key={cat.key}
                 style={styles.categoryCard}
-                onPress={() => router.push({ pathname: '/browse', params: { category: cat.key } })}
+                onPress={() => setSelectedCategory(cat.key)}
               >
-                <View style={styles.categoryImageWrap}>
+                <View style={[styles.categoryImageWrap, selectedCategory === cat.key && { borderColor: COLORS.primary, borderWidth: 3 }]}>
                   <Image source={{ uri: cat.image }} style={styles.categoryImage} resizeMode="cover" />
                 </View>
-                <Text style={[styles.categoryLabel, themed.textPrimary]}>{cat.label}</Text>
+                <Text style={[styles.categoryLabel, themed.textPrimary, selectedCategory === cat.key && { color: COLORS.primary }]}>{cat.label}</Text>
               </BounceCard>
             ))}
           </ScrollView>
 
+          {/* Filters — collapses on scroll */}
+          <RNAnimated.View style={{ height: filterHeight, opacity: filterOpacity, overflow: 'hidden' }}>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterChipsScroll}>
             <TouchableOpacity
               style={styles.filterChipPrimary}
@@ -646,8 +882,30 @@ export default function HomeScreen() {
               </TouchableOpacity>
             ))}
           </ScrollView>
+          </RNAnimated.View>
         </View>
 
+        {/* ━━━ CATEGORY PRODUCTS GRID (shown when specific category selected) ━━━ */}
+        {!isAllCategory && categoryProducts.length > 0 && (
+          <View style={{ paddingHorizontal: SPACING.base, paddingTop: SPACING.sm }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: SPACING.sm }}>
+              <Text style={[styles.sectionTitle, themed.textPrimary, { marginTop: 0, marginBottom: 0, marginHorizontal: 0 }]}>{selectedCategory}</Text>
+              <TouchableOpacity onPress={() => router.push({ pathname: '/browse', params: { category: selectedCategory } })}>
+                <Text style={styles.viewAllLink}>View All</Text>
+              </TouchableOpacity>
+            </View>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
+              {categoryProducts.map(item => (
+                <View key={`cat_${item.id}`} style={{ width: (width - SPACING.base * 2 - 12) / 2 }}>
+                  <ProductMiniCard item={item} themed={themed} />
+                </View>
+              ))}
+            </View>
+          </View>
+        )}
+
+        {/* ━━━ ALL SECTIONS (only when "All" category is active) ━━━ */}
+        {isAllCategory && (<>
         {/* ━━━ SUBSCRIPTION PROMO ━━━ */}
         <TouchableOpacity
           style={{ marginHorizontal: SPACING.base, marginTop: SECTION_GAP, borderRadius: RADIUS.xl, overflow: 'hidden', ...SHADOW.lg }}
@@ -1081,6 +1339,7 @@ export default function HomeScreen() {
         </ScrollView>
 
         <View style={{ height: SPACING.xxl }} />
+        </>)}
       </ScrollView>
 
       {/* ━━━ ASK CHOPIFY FAB ━━━ */}
@@ -1106,6 +1365,7 @@ export default function HomeScreen() {
       {/* <WelcomeModal visible={showWelcome} onClose={() => setShowWelcome(false)} /> */}
       </View>
     </SafeAreaView>
+    </View>
   );
 }
 
@@ -1165,7 +1425,7 @@ const styles = StyleSheet.create({
   /* Scroll */
   scroll: { paddingBottom: 100 },
 
-  /* Offers Carousel */
+  /* Offers Carousel (styles now in offerCardStyles above) */
   offersSection: { marginTop: SPACING.sm },
   offerCard: {
     flexDirection: 'row', alignItems: 'center', borderRadius: RADIUS.xl,

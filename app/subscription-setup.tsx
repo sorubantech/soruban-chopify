@@ -16,6 +16,7 @@ import { DISH_PACKS } from '@/data/dishPacks';
 import { SPECIAL_PLANS, PLAN_CATEGORIES } from '@/data/specialPlans';
 import type { SpecialPlan } from '@/data/specialPlans';
 import { useDiet } from '@/context/DietContext';
+import { useSavedCarts } from '@/context/SavedCartContext';
 
 /* ─── Types ─── */
 interface SubscriptionItem {
@@ -102,6 +103,7 @@ export default function SubscriptionSetupScreen() {
   const themed = useThemedStyles();
   const { addToCart, cartItems } = useCart();
   const { gender, lifestyle, healthGoals, profileComplete } = useDiet();
+  const { savedCarts, customPacks } = useSavedCarts();
 
   const [step, setStep] = useState(1);
   const [frequency, setFrequency] = useState<SubFrequency>('weekly');
@@ -168,6 +170,8 @@ export default function SubscriptionSetupScreen() {
   const [showProductPicker, setShowProductPicker] = useState(false);
   const [showPackPicker, setShowPackPicker] = useState(false);
   const [showCartPicker, setShowCartPicker] = useState(false);
+  const [showTemplatePicker, setShowTemplatePicker] = useState(false);
+  const hasTemplates = savedCarts.length > 0 || customPacks.length > 0;
   const [showCutPicker, setShowCutPicker] = useState(false);
   const [editingItemIndex, setEditingItemIndex] = useState<number | null>(null);
   const [expandedPacks, setExpandedPacks] = useState<string[]>([]);
@@ -648,7 +652,18 @@ export default function SubscriptionSetupScreen() {
               <Icon name="arrow-left" size={24} color={themed.colors.text.primary} />
             </TouchableOpacity>
             <Text style={[styles.headerTitle, themed.textPrimary]}>{params.groupCode ? 'Group ' : ''}Subscription Setup</Text>
-            <View style={{ width: 40 }} />
+            <TouchableOpacity
+              onPress={() => {
+                if (step === 1) { router.back(); return; }
+                Alert.alert('Cancel Setup?', 'Your progress will be lost. Are you sure?', [
+                  { text: 'Continue Editing', style: 'cancel' },
+                  { text: 'Cancel', style: 'destructive', onPress: () => router.back() },
+                ]);
+              }}
+              style={{ paddingHorizontal: 8, paddingVertical: 4 }}
+            >
+              <Text style={{ fontSize: 13, fontWeight: '700', color: COLORS.status.error }}>Cancel</Text>
+            </TouchableOpacity>
           </View>
         </SafeAreaView>
       </LinearGradient>
@@ -1047,7 +1062,21 @@ export default function SubscriptionSetupScreen() {
             {/* Weekly & Monthly: selected dates chips */}
             {(frequency === 'weekly' || frequency === 'monthly') && selectedDates.length > 0 && (
               <View style={[styles.monthlyDatesCard, themed.card]}>
-                <Text style={[styles.monthlyDatesTitle, themed.textPrimary]}>Selected Delivery Dates</Text>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Text style={[styles.monthlyDatesTitle, themed.textPrimary]}>Selected Delivery Dates</Text>
+                  {selectedDates.length > 1 && (
+                    <TouchableOpacity
+                      onPress={() => Alert.alert('Clear All', 'Remove all selected dates?', [
+                        { text: 'Cancel', style: 'cancel' },
+                        { text: 'Clear', style: 'destructive', onPress: () => { setSelectedDates([formatDate(today)]); setDisabledDates([]); } },
+                      ])}
+                      style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 5, backgroundColor: '#FFEBEE', borderRadius: RADIUS.full }}
+                    >
+                      <Icon name="close-circle-outline" size={14} color={COLORS.status.error} />
+                      <Text style={{ fontSize: 11, fontWeight: '700', color: COLORS.status.error }}>Clear All</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
                 {disabledDates.some(d => selectedDates.includes(d)) && (
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: SPACING.sm }}>
                     <Icon name="information-outline" size={12} color={COLORS.text.muted} />
@@ -1134,6 +1163,13 @@ export default function SubscriptionSetupScreen() {
               >
                 <Icon name="cart-arrow-down" size={22} color="#7B1FA2" />
                 <Text style={[styles.addCardBtnText, themed.textPrimary]}>From Cart</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.addCardBtn, themed.card, !hasTemplates && { opacity: 0.4 }]}
+                onPress={() => hasTemplates ? setShowTemplatePicker(true) : Alert.alert('No Templates', 'Save a cart or create a custom pack first.')}
+              >
+                <Icon name="file-document-outline" size={22} color="#00897B" />
+                <Text style={[styles.addCardBtnText, themed.textPrimary]}>My Templates</Text>
               </TouchableOpacity>
             </View>
 
@@ -1657,6 +1693,107 @@ export default function SubscriptionSetupScreen() {
         </SafeAreaView>
       </Modal>
 
+      {/* My Templates Picker Modal */}
+      <Modal visible={showTemplatePicker} animationType="slide" onRequestClose={() => setShowTemplatePicker(false)}>
+        <SafeAreaView style={[styles.modalSafe, themed.safeArea]}>
+          <View style={styles.modalHeader}>
+            <Text style={[styles.modalTitle, themed.textPrimary]}>My Templates</Text>
+            <TouchableOpacity onPress={() => setShowTemplatePicker(false)}>
+              <Icon name="close" size={24} color={themed.colors.text.primary} />
+            </TouchableOpacity>
+          </View>
+          <ScrollView contentContainerStyle={{ padding: SPACING.base }}>
+            {savedCarts.length > 0 && (
+              <>
+                <Text style={[{ fontSize: 15, fontWeight: '800', marginBottom: 10 }, themed.textPrimary]}>Saved Carts</Text>
+                {savedCarts.map(cart => (
+                  <TouchableOpacity
+                    key={cart.id}
+                    style={[styles.pickerRow, { marginBottom: 8 }]}
+                    onPress={() => {
+                      const subItems: SubscriptionItem[] = cart.items.map(item => ({
+                        productId: item.id, name: item.name, image: item.image,
+                        price: item.price, quantity: item.quantity, unit: item.unit || '1 kg',
+                        cutType: item.cutType,
+                      }));
+                      setDayItems(prev => {
+                        const updated = { ...prev };
+                        selectedDates.forEach(d => {
+                          updated[d] = [...(updated[d] || []), ...subItems];
+                        });
+                        return updated;
+                      });
+                      setShowTemplatePicker(false);
+                      Alert.alert('Added', `${cart.items.length} items from "${cart.name}" added to selected dates.`);
+                    }}
+                  >
+                    <View style={{ width: 40, height: 40, borderRadius: 10, backgroundColor: '#E3F2FD', alignItems: 'center', justifyContent: 'center' }}>
+                      <Icon name="cart-heart" size={20} color="#1565C0" />
+                    </View>
+                    <View style={{ flex: 1, marginLeft: 10 }}>
+                      <Text style={[styles.pickerName, themed.textPrimary]}>{cart.name}</Text>
+                      <Text style={styles.pickerInfo}>{cart.items.length} items · {cart.items.slice(0, 3).map(i => i.name).join(', ')}{cart.items.length > 3 ? '...' : ''}</Text>
+                    </View>
+                    <Icon name="plus-circle-outline" size={20} color="#1565C0" />
+                  </TouchableOpacity>
+                ))}
+              </>
+            )}
+
+            {customPacks.length > 0 && (
+              <>
+                <Text style={[{ fontSize: 15, fontWeight: '800', marginTop: 20, marginBottom: 10 }, themed.textPrimary]}>Custom Packs</Text>
+                {customPacks.map(pack => {
+                  const packProducts = pack.items.map(i => products.find(p => p.id === i.productId)).filter(Boolean);
+                  return (
+                    <TouchableOpacity
+                      key={pack.id}
+                      style={[styles.pickerRow, { marginBottom: 8 }]}
+                      onPress={() => {
+                        const subItems: SubscriptionItem[] = pack.items.map(item => {
+                          const prod = products.find(p => p.id === item.productId);
+                          return prod ? {
+                            productId: prod.id, name: prod.name, image: prod.image,
+                            price: prod.price, quantity: item.quantity, unit: prod.unit || '1 kg',
+                            cutType: item.cutType,
+                          } : null;
+                        }).filter(Boolean) as SubscriptionItem[];
+                        setDayItems(prev => {
+                          const updated = { ...prev };
+                          selectedDates.forEach(d => {
+                            updated[d] = [...(updated[d] || []), ...subItems];
+                          });
+                          return updated;
+                        });
+                        setShowTemplatePicker(false);
+                        Alert.alert('Added', `${pack.items.length} items from "${pack.name}" added to selected dates.`);
+                      }}
+                    >
+                      <View style={{ width: 40, height: 40, borderRadius: 10, backgroundColor: '#E8F5E9', alignItems: 'center', justifyContent: 'center' }}>
+                        <Icon name="package-variant" size={20} color={COLORS.primary} />
+                      </View>
+                      <View style={{ flex: 1, marginLeft: 10 }}>
+                        <Text style={[styles.pickerName, themed.textPrimary]}>{pack.name}</Text>
+                        <Text style={styles.pickerInfo}>{pack.items.length} items · {packProducts.slice(0, 3).map(p => p!.name).join(', ')}{packProducts.length > 3 ? '...' : ''}</Text>
+                      </View>
+                      <Icon name="plus-circle-outline" size={20} color={COLORS.primary} />
+                    </TouchableOpacity>
+                  );
+                })}
+              </>
+            )}
+
+            {savedCarts.length === 0 && customPacks.length === 0 && (
+              <View style={styles.emptyItems}>
+                <Icon name="file-document-outline" size={40} color={COLORS.text.muted} />
+                <Text style={styles.emptyText}>No templates yet</Text>
+                <Text style={{ fontSize: 12, color: COLORS.text.muted, textAlign: 'center', marginTop: 4 }}>Save a cart or create a custom pack to use as template</Text>
+              </View>
+            )}
+          </ScrollView>
+        </SafeAreaView>
+      </Modal>
+
       {/* Special Plan Detail Modal */}
       <Modal visible={showPlanDetail && !!selectedPlan} transparent animationType="slide" onRequestClose={() => setShowPlanDetail(false)}>
         <View style={styles.planDetailOverlay}>
@@ -1899,8 +2036,8 @@ const styles = StyleSheet.create({
   copyActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: SPACING.md },
   copyBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: '#FFF', borderRadius: RADIUS.full, paddingHorizontal: 14, paddingVertical: 10, ...SHADOW.sm },
   copyBtnText: { fontSize: 11, fontWeight: '700', color: COLORS.text.primary },
-  addRow: { flexDirection: 'row', gap: 8, marginBottom: SPACING.md },
-  addCardBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: '#FFF', borderRadius: RADIUS.lg, paddingVertical: 12, paddingHorizontal: 6, ...SHADOW.sm },
+  addRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: SPACING.md },
+  addCardBtn: { width: '47%' as any, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: '#FFF', borderRadius: RADIUS.lg, paddingVertical: 12, paddingHorizontal: 8, ...SHADOW.sm },
   addCardBtnText: { fontSize: 11, fontWeight: '700' },
   itemsCard: { backgroundColor: '#FFF', borderRadius: RADIUS.lg, padding: SPACING.base, marginBottom: SPACING.md, ...SHADOW.sm },
   itemsCardTitle: { fontSize: 15, fontWeight: '800', marginBottom: SPACING.md },

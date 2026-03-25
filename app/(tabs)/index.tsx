@@ -2,7 +2,7 @@ import React, { useMemo, useRef, useEffect, useState, useCallback } from 'react'
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   Image, useWindowDimensions, StatusBar, FlatList, Alert,
-  Animated as RNAnimated, Modal, BackHandler,
+  Animated as RNAnimated, Modal, BackHandler, Platform,
 } from 'react-native';
 import Icon from '@expo/vector-icons/MaterialCommunityIcons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -747,8 +747,9 @@ export default function HomeScreen() {
 
   return (
     <View style={styles.safe}>
-    <SafeAreaView style={[{ flex: 1 }, themed.safeArea]} edges={['top', 'bottom']}>
-      <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
+    <StatusBar barStyle="dark-content" backgroundColor={isAllCategory ? OFFERS[carouselIndex].headerBg : COLORS.background} translucent />
+    <View style={{ height: StatusBar.currentHeight ?? 0, backgroundColor: isAllCategory ? OFFERS[carouselIndex].headerBg : COLORS.background }} />
+    <SafeAreaView style={[{ flex: 1 }, themed.safeArea]} edges={['bottom']}>
 
       <View style={{ flex: 1 }}>
       {/* ─── Sticky Categories + Filters overlay (shown when scrolled past carousel) ─── */}
@@ -784,8 +785,7 @@ export default function HomeScreen() {
       >
 
         {/* ━━━ HEADER + CAROUSEL — one unified block with same bg, scrolls together ━━━ */}
-        {isAllCategory && (
-          <View style={{ backgroundColor: OFFERS[carouselIndex].headerBg }}>
+          <View style={[{ backgroundColor: OFFERS[carouselIndex].headerBg }, !isAllCategory && { display: 'none' }]}>
             <View style={styles.header}>
               <View style={styles.headerRow}>
                 <View>
@@ -822,7 +822,6 @@ export default function HomeScreen() {
             </View>
             <OffersCarousel width={width} activeIndex={carouselIndex} onIndexChange={onCarouselChange} />
           </View>
-        )}
 
         {/* Search bar when specific category selected */}
         {!isAllCategory && (

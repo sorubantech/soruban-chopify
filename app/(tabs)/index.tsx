@@ -391,13 +391,14 @@ function ScrollReveal({ children, delay = 0 }: { children: React.ReactNode; dela
 }
 
 /* ─── Offers Carousel (full-bleed, animated) ─── */
-function OffersCarousel({ width, activeIndex, onIndexChange }: { width: number; activeIndex: number; onIndexChange: (i: number) => void }) {
+function OffersCarousel({ width, activeIndex, onIndexChange, isVisible = true }: { width: number; activeIndex: number; onIndexChange: (i: number) => void; isVisible?: boolean }) {
   const flatListRef = useRef<FlatList>(null);
   const indexRef = useRef(0);
   const router = useRouter();
   const scrollX = useRef(new RNAnimated.Value(0)).current;
 
   useEffect(() => {
+    if (!isVisible) return;
     const timer = setInterval(() => {
       const next = (indexRef.current + 1) % OFFERS.length;
       indexRef.current = next;
@@ -405,7 +406,7 @@ function OffersCarousel({ width, activeIndex, onIndexChange }: { width: number; 
       flatListRef.current?.scrollToOffset({ offset: next * width, animated: true });
     }, 3500);
     return () => clearInterval(timer);
-  }, [width, onIndexChange]);
+  }, [width, onIndexChange, isVisible]);
 
   const onScroll = useCallback((e: any) => {
     const idx = Math.round(e.nativeEvent.contentOffset.x / width);
@@ -747,8 +748,7 @@ export default function HomeScreen() {
 
   return (
     <View style={styles.safe}>
-    <StatusBar barStyle="dark-content" backgroundColor={isAllCategory ? OFFERS[carouselIndex].headerBg : COLORS.background} translucent />
-    <View style={{ height: StatusBar.currentHeight ?? 0, backgroundColor: isAllCategory ? OFFERS[carouselIndex].headerBg : COLORS.background }} />
+    <StatusBar barStyle="dark-content" backgroundColor={isAllCategory ? OFFERS[carouselIndex].headerBg : COLORS.background} />
     <SafeAreaView style={[{ flex: 1 }, themed.safeArea]} edges={['bottom']}>
 
       <View style={{ flex: 1 }}>
@@ -820,7 +820,7 @@ export default function HomeScreen() {
                 <Icon name="microphone-outline" size={20} color={COLORS.text.muted} />
               </TouchableOpacity>
             </View>
-            <OffersCarousel width={width} activeIndex={carouselIndex} onIndexChange={onCarouselChange} />
+            <OffersCarousel width={width} activeIndex={carouselIndex} onIndexChange={onCarouselChange} isVisible={isAllCategory} />
           </View>
 
         {/* Search bar when specific category selected */}

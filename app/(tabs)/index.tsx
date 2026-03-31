@@ -749,7 +749,7 @@ export default function HomeScreen() {
   return (
     <View style={styles.safe}>
     <StatusBar barStyle="dark-content" backgroundColor={isAllCategory ? OFFERS[carouselIndex].headerBg : COLORS.background} />
-    <SafeAreaView style={[{ flex: 1 }, themed.safeArea]} edges={['bottom']}>
+    <SafeAreaView style={[{ flex: 1 }, themed.safeArea]} edges={['top', 'bottom']}>
 
       <View style={{ flex: 1 }}>
       {/* ─── Sticky Categories + Filters overlay (shown when scrolled past carousel) ─── */}

@@ -122,6 +122,7 @@ function RootLayoutNav() {
         <Stack.Screen name="group-subscription" />
         <Stack.Screen name="corporate-subscription" />
         <Stack.Screen name="recipe-cart" />
+        <Stack.Screen name="b2b-portal" />
       </Stack>
       </View>
     </NavThemeProvider>

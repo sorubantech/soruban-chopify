@@ -46,6 +46,7 @@ export default function ProfileScreen() {
     { icon: 'ticket-percent', label: 'Offers & Coupons', desc: 'Available discounts', route: '/offers-coupons', color: '#E65100' },
     { icon: 'account-group', label: 'Group Subscription', desc: 'Hostel group — share & save', route: '/group-subscription', color: '#1565C0' },
     { icon: 'domain', label: 'Corporate Plans', desc: 'Office fruit baskets & wellness', route: '/corporate-subscription', color: '#1A237E' },
+    { icon: 'briefcase-outline', label: 'B2B Portal', desc: 'Bulk ordering for businesses', route: '/b2b-portal', color: '#1A237E' },
     { icon: 'airplane', label: 'Vacation Mode', desc: 'Pause deliveries', route: '/vacation-mode', color: '#607D8B' },
   ];
 
